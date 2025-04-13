@@ -20,7 +20,7 @@ const NutriTrack = () => {
     if (unitCounts.date !== today) {
       const newDay = {
         ...getDefaultDayState(),
-        date: today
+        dayType: unitCounts.dayType || 'normal' // Keep the last selected day type
       };
       
       setAppState(prevState => {
@@ -90,13 +90,40 @@ const NutriTrack = () => {
     }
   };
   
+  const handleDayTypeChange = (newDayType) => {
+    setAppState(prevState => {
+      // Update current day type
+      const newCurrentDay = { ...prevState.currentDay, dayType: newDayType };
+      
+      // Update history for today
+      const today = newCurrentDay.date;
+      const historyIndex = prevState.history.findIndex(day => day.date === today);
+      const newHistory = [...prevState.history];
+      
+      if (historyIndex >= 0) {
+        newHistory[historyIndex] = { ...newHistory[historyIndex], dayType: newDayType };
+      }
+      
+      const newState = {
+        currentDay: newCurrentDay,
+        history: newHistory
+      };
+      
+      saveToCookie(newState);
+      return newState;
+    });
+  };
+  
   const handleSliderChange = (e) => {
     setSliderValue(parseInt(e.target.value, 10));
     
     if (parseInt(e.target.value, 10) === 100) {
-      // Reset current day but keep history
+      // Reset current day but keep history and day type
       setAppState(prevState => {
-        const newCurrentDay = getDefaultDayState();
+        const newCurrentDay = {
+          ...getDefaultDayState(),
+          dayType: prevState.currentDay.dayType // Preserve day type
+        };
         
         // Update history for current day
         const today = newCurrentDay.date;
@@ -154,9 +181,18 @@ const NutriTrack = () => {
 
   return (
     <div className="flex flex-col min-h-screen max-w-md mx-auto p-4 bg-white shadow-lg sm:my-4 sm:rounded-xl no-select">
-      <header className="mb-6 text-center">
+      <header className="mb-4 text-center">
         <h1 className="text-2xl font-bold text-gray-800">NutriTrack</h1>
-        <p className="text-gray-600 text-sm">Track your daily food intake</p>
+        <p className="text-gray-600 text-sm mb-2">Track your daily food intake</p>
+        
+        {/* Day Type Selector */}
+        {!showHistory && (
+          <DayTypeSelector 
+            currentDayType={unitCounts.dayType || 'normal'} 
+            onChange={handleDayTypeChange}
+          />
+        )}
+        
         <div className="flex justify-center mt-2">
           <button 
             onClick={toggleHistory}
@@ -175,6 +211,7 @@ const NutriTrack = () => {
               key={category.id}
               category={category}
               unitCount={unitCounts[category.id]}
+              dayType={unitCounts.dayType || 'normal'}
               activeButton={activeButton}
               onTouchStart={handleTouchStart}
               onTouchEnd={handleTouchEnd}
