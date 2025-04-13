@@ -89,12 +89,13 @@
       { id: 'vegetables', name: 'Vegetables', maxUnits: 5, color: '#55AD7A', bgColor: '#E7F5EE' }
     ];
 
-    // Helper to get default state
-    const getDefaultState = () => ({
+    // Helper to get default state for a single day
+    const getDefaultDayState = () => ({
       carbs: 0,
       proteins: 0,
       fats: 0,
-      vegetables: 0
+      vegetables: 0,
+      date: new Date().toISOString().split('T')[0] // Store current date in YYYY-MM-DD format
     });
 
     // Cookie functions defined outside of component
@@ -117,13 +118,35 @@
             try {
               const savedState = JSON.parse(value);
               if (savedState && typeof savedState === 'object') {
-                const validState = {};
+                // Format has changed - if we have history array, great
+                if (Array.isArray(savedState.history)) {
+                  return savedState;
+                }
+                
+                // If we have the old format (just tracking values), migrate to new format
+                const today = new Date().toISOString().split('T')[0];
+                const validState = {
+                  currentDay: {
+                    date: today
+                  },
+                  history: [
+                    {
+                      date: today
+                    }
+                  ]
+                };
+                
+                // Migrate old values
                 for (const category of FOOD_CATEGORIES) {
                   const categoryId = category.id;
-                  validState[categoryId] = (savedState.hasOwnProperty(categoryId) && 
+                  const val = (savedState.hasOwnProperty(categoryId) && 
                     typeof savedState[categoryId] === 'number' && 
                     savedState[categoryId] >= 0) ? savedState[categoryId] : 0;
+                  
+                  validState.currentDay[categoryId] = val;
+                  validState.history[0][categoryId] = val;
                 }
+                
                 return validState;
               }
             } catch (error) {
@@ -134,16 +157,48 @@
       } catch (error) {
         console.error('Error loading from cookies:', error);
       }
-      return getDefaultState();
+      
+      // Return default state if no valid saved state
+      const defaultDay = getDefaultDayState();
+      return {
+        currentDay: defaultDay,
+        history: [{ ...defaultDay }]
+      };
     };
 
     // The main component with its functionality
     const NutriTrack = () => {
-      // Set up state
-      const [unitCounts, setUnitCounts] = React.useState(loadFromCookie());
+      // Set up state with history
+      const [appState, setAppState] = React.useState(loadFromCookie());
       const [sliderValue, setSliderValue] = React.useState(0);
       const [isTouchActive, setIsTouchActive] = React.useState(false);
       const [activeButton, setActiveButton] = React.useState(null);
+      const [showHistory, setShowHistory] = React.useState(false);
+      
+      // Shorthand for current day's unit counts
+      const unitCounts = appState.currentDay;
+      
+      // Check if current day needs to be reset
+      React.useEffect(() => {
+        const today = new Date().toISOString().split('T')[0];
+        
+        // If the current day is not today, create a new day
+        if (unitCounts.date !== today) {
+          const newDay = {
+            ...getDefaultDayState(),
+            date: today
+          };
+          
+          setAppState(prevState => {
+            const newState = {
+              currentDay: newDay,
+              history: [newDay, ...prevState.history.slice(0, 6)] // Keep last 7 days
+            };
+            saveToCookie(newState);
+            return newState;
+          });
+        }
+      }, []);
       
       // Detect touch device
       React.useEffect(() => {
@@ -159,27 +214,45 @@
       }, []);
       
       // Event handlers
-      const incrementUnit = (categoryId) => {
-        setUnitCounts(prevCounts => {
-          const newCounts = {
-            ...prevCounts,
-            [categoryId]: prevCounts[categoryId] + 1
+      const updateUnitCount = (categoryId, newValue) => {
+        if (newValue < 0) return;
+        
+        setAppState(prevState => {
+          // Find the history index for today (should be index 0, but let's be safe)
+          const today = new Date().toISOString().split('T')[0];
+          const historyIndex = prevState.history.findIndex(day => day.date === today);
+          
+          // Deep clone the history array
+          const newHistory = [...prevState.history];
+          
+          // Create new current day object
+          const newCurrentDay = { ...prevState.currentDay, [categoryId]: newValue };
+          
+          // Update today's history entry if it exists
+          if (historyIndex >= 0) {
+            newHistory[historyIndex] = { ...newHistory[historyIndex], [categoryId]: newValue };
+          } else {
+            // Add today to history if not found (shouldn't happen, but just in case)
+            newHistory.unshift({ ...newCurrentDay });
+          }
+          
+          const newState = {
+            currentDay: newCurrentDay,
+            history: newHistory
           };
-          saveToCookie(newCounts);
-          return newCounts;
+          
+          saveToCookie(newState);
+          return newState;
         });
+      };
+      
+      const incrementUnit = (categoryId) => {
+        updateUnitCount(categoryId, unitCounts[categoryId] + 1);
       };
 
       const decrementUnit = (categoryId) => {
         if (unitCounts[categoryId] > 0) {
-          setUnitCounts(prevCounts => {
-            const newCounts = {
-              ...prevCounts,
-              [categoryId]: prevCounts[categoryId] - 1
-            };
-            saveToCookie(newCounts);
-            return newCounts;
-          });
+          updateUnitCount(categoryId, unitCounts[categoryId] - 1);
         }
       };
       
@@ -187,9 +260,29 @@
         setSliderValue(parseInt(e.target.value, 10));
         
         if (parseInt(e.target.value, 10) === 100) {
-          const resetState = getDefaultState();
-          setUnitCounts(resetState);
-          saveToCookie(resetState);
+          // Reset current day but keep history
+          setAppState(prevState => {
+            const newCurrentDay = getDefaultDayState();
+            
+            // Update history for current day
+            const today = newCurrentDay.date;
+            const historyIndex = prevState.history.findIndex(day => day.date === today);
+            const newHistory = [...prevState.history];
+            
+            if (historyIndex >= 0) {
+              newHistory[historyIndex] = { ...newCurrentDay };
+            } else {
+              newHistory.unshift({ ...newCurrentDay });
+            }
+            
+            const newState = {
+              currentDay: newCurrentDay,
+              history: newHistory
+            };
+            
+            saveToCookie(newState);
+            return newState;
+          });
           
           setTimeout(() => {
             setSliderValue(0);
@@ -221,9 +314,13 @@
         }
       };
 
+      const toggleHistory = () => {
+        setShowHistory(!showHistory);
+      };
+
       // Rendering functions
-      const renderHalfCircles = (categoryId, maxUnits, color, bgColor) => {
-        const currentUnits = unitCounts[categoryId];
+      const renderHalfCircles = (categoryId, maxUnits, color, bgColor, dayData = unitCounts) => {
+        const currentUnits = dayData[categoryId] || 0;
         const isExceeded = currentUnits > maxUnits;
         const fullUnits = isExceeded ? maxUnits : currentUnits;
         const excessUnits = isExceeded ? currentUnits - maxUnits : 0;
@@ -259,103 +356,163 @@
         return [...units, ...excess];
       };
 
+      // Formatting a date for display
+      const formatDate = (dateStr) => {
+        const date = new Date(dateStr);
+        const today = new Date();
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        
+        if (dateStr === today.toISOString().split('T')[0]) {
+          return 'Today';
+        } else if (dateStr === yesterday.toISOString().split('T')[0]) {
+          return 'Yesterday';
+        } else {
+          return date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+        }
+      };
+
       return (
         <div className="flex flex-col min-h-screen max-w-md mx-auto p-4 bg-white shadow-lg sm:my-4 sm:rounded-xl no-select">
           <header className="mb-6 text-center">
             <h1 className="text-2xl font-bold text-gray-800">NutriTrack</h1>
             <p className="text-gray-600 text-sm">Track your daily food intake</p>
+            <div className="flex justify-center mt-2">
+              <button 
+                onClick={toggleHistory}
+                className="px-4 py-1 text-sm bg-indigo-500 text-white rounded-full hover:bg-indigo-600 transition-colors"
+              >
+                {showHistory ? 'Hide History' : 'Show History'}
+              </button>
+            </div>
           </header>
           
           <main className="flex-grow">
-            {FOOD_CATEGORIES.map(category => {
-              const currentUnits = unitCounts[category.id];
-              const isExceeded = currentUnits > category.maxUnits;
-              const isMaxed = currentUnits === category.maxUnits;
-              
-              let labelColor = 'text-gray-700';
-              if (isExceeded) {
-                labelColor = 'text-red-500';
-              } else if (isMaxed) {
-                labelColor = 'text-blue-500';
-              }
-              
-              return (
-                <div key={category.id} className="mb-4 bg-white rounded-lg p-3 shadow-sm border border-gray-100">
-                  <div className="flex justify-between items-center mb-2">
-                    <h2 className={`text-lg font-semibold ${labelColor}`}>
-                      {category.name} ({currentUnits}/{category.maxUnits})
-                    </h2>
-                    <div className="flex space-x-2">
-                      <button 
-                        onTouchStart={() => handleTouchStart(category.id, 'dec')}
-                        onTouchEnd={handleTouchEnd}
-                        onClick={() => handleButtonClick(category.id, 'dec')}
-                        disabled={currentUnits <= 0}
-                        className={`w-12 h-12 flex items-center justify-center text-lg font-bold rounded-full focus:outline-none transition-colors duration-150 ${
-                          activeButton === `${category.id}-dec` 
-                            ? 'bg-gray-300 text-gray-700' 
-                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                        } disabled:opacity-40`}
-                        aria-label={`Decrease ${category.name}`}
-                      >
-                        -
-                      </button>
-                      <button 
-                        onTouchStart={() => handleTouchStart(category.id, 'inc')}
-                        onTouchEnd={handleTouchEnd}
-                        onClick={() => handleButtonClick(category.id, 'inc')}
-                        className={`w-12 h-12 flex items-center justify-center text-lg font-bold rounded-full focus:outline-none transition-colors duration-150 ${
-                          activeButton === `${category.id}-inc` 
-                            ? 'bg-gray-300 text-gray-700' 
-                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                        }`}
-                        aria-label={`Increase ${category.name}`}
-                      >
-                        +
-                      </button>
+            {!showHistory ? (
+              // Today's tracking
+              FOOD_CATEGORIES.map(category => {
+                const currentUnits = unitCounts[category.id];
+                const isExceeded = currentUnits > category.maxUnits;
+                const isMaxed = currentUnits === category.maxUnits;
+                
+                let labelColor = 'text-gray-700';
+                if (isExceeded) {
+                  labelColor = 'text-red-500';
+                } else if (isMaxed) {
+                  labelColor = 'text-blue-500';
+                }
+                
+                return (
+                  <div key={category.id} className="mb-4 bg-white rounded-lg p-3 shadow-sm border border-gray-100">
+                    <div className="flex justify-between items-center mb-2">
+                      <h2 className={`text-lg font-semibold ${labelColor}`}>
+                        {category.name} ({currentUnits}/{category.maxUnits})
+                      </h2>
+                      <div className="flex space-x-2">
+                        <button 
+                          onTouchStart={() => handleTouchStart(category.id, 'dec')}
+                          onTouchEnd={handleTouchEnd}
+                          onClick={() => handleButtonClick(category.id, 'dec')}
+                          disabled={currentUnits <= 0}
+                          className={`w-12 h-12 flex items-center justify-center text-lg font-bold rounded-full focus:outline-none transition-colors duration-150 ${
+                            activeButton === `${category.id}-dec` 
+                              ? 'bg-gray-300 text-gray-700' 
+                              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                          } disabled:opacity-40`}
+                          aria-label={`Decrease ${category.name}`}
+                        >
+                          -
+                        </button>
+                        <button 
+                          onTouchStart={() => handleTouchStart(category.id, 'inc')}
+                          onTouchEnd={handleTouchEnd}
+                          onClick={() => handleButtonClick(category.id, 'inc')}
+                          className={`w-12 h-12 flex items-center justify-center text-lg font-bold rounded-full focus:outline-none transition-colors duration-150 ${
+                            activeButton === `${category.id}-inc` 
+                              ? 'bg-gray-300 text-gray-700' 
+                              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                          }`}
+                          aria-label={`Increase ${category.name}`}
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-wrap space-x-1 py-2 hide-scrollbar">
+                      {renderHalfCircles(category.id, category.maxUnits, category.color, category.bgColor)}
                     </div>
                   </div>
-                  
-                  <div className="flex flex-wrap space-x-1 py-2 hide-scrollbar">
-                    {renderHalfCircles(category.id, category.maxUnits, category.color, category.bgColor)}
+                );
+              })
+            ) : (
+              // History view
+              <div className="space-y-4">
+                {appState.history.map((day, index) => (
+                  <div key={day.date} className="bg-white rounded-lg p-3 shadow-sm border border-gray-100">
+                    <h3 className="font-medium text-gray-800 mb-2">
+                      {formatDate(day.date)}
+                    </h3>
+                    
+                    <div className="space-y-3">
+                      {FOOD_CATEGORIES.map(category => (
+                        <div key={`${day.date}-${category.id}`} className="flex items-center">
+                          <div className="w-24 text-sm text-gray-600">{category.name}</div>
+                          <div className="flex-grow flex flex-wrap space-x-1">
+                            {renderHalfCircles(category.id, category.maxUnits, category.color, category.bgColor, day)}
+                          </div>
+                          <div className="w-12 text-right text-sm font-medium" style={{ color: category.color }}>
+                            {day[category.id] || 0}/{category.maxUnits}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                ))}
+                
+                {appState.history.length === 0 && (
+                  <div className="text-center text-gray-500 py-6">
+                    No history data available yet
+                  </div>
+                )}
+              </div>
+            )}
           </main>
           
-          <footer className="mt-4 mb-4">
-            <div className="bg-gray-100 p-4 rounded-lg shadow-inner">
-              <p className="text-center text-gray-600 mb-3 text-sm">Slide to reset all tracking</p>
-              <div className="relative">
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={sliderValue}
-                  onChange={handleSliderChange}
-                  className="w-full h-8 rounded-full outline-none"
-                  style={{
-                    background: `linear-gradient(to right, #e5e7eb 0%, #e5e7eb ${sliderValue}%, #e5e7eb ${sliderValue}%, #e5e7eb 100%)`,
-                  }}
-                />
-                <div 
-                  className="absolute top-0 left-0 h-8 rounded-full pointer-events-none"
-                  style={{
-                    width: `${sliderValue}%`,
-                    background: sliderValue > 95 ? '#4F46E5' : '#9CA3AF',
-                    transition: 'background-color 0.2s ease'
-                  }}
-                />
+          {!showHistory && (
+            <footer className="mt-4 mb-4">
+              <div className="bg-gray-100 p-4 rounded-lg shadow-inner">
+                <p className="text-center text-gray-600 mb-3 text-sm">Slide to reset today's tracking</p>
+                <div className="relative">
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={sliderValue}
+                    onChange={handleSliderChange}
+                    className="w-full h-8 rounded-full outline-none"
+                    style={{
+                      background: `linear-gradient(to right, #e5e7eb 0%, #e5e7eb ${sliderValue}%, #e5e7eb ${sliderValue}%, #e5e7eb 100%)`,
+                    }}
+                  />
+                  <div 
+                    className="absolute top-0 left-0 h-8 rounded-full pointer-events-none"
+                    style={{
+                      width: `${sliderValue}%`,
+                      background: sliderValue > 95 ? '#4F46E5' : '#9CA3AF',
+                      transition: 'background-color 0.2s ease'
+                    }}
+                  />
+                </div>
+                <p className="text-center text-xs text-gray-500 mt-2">
+                  {sliderValue > 95 ? 'Release to reset' : 'Slide all the way to reset'}
+                </p>
               </div>
-              <p className="text-center text-xs text-gray-500 mt-2">
-                {sliderValue > 95 ? 'Release to reset' : 'Slide all the way to reset'}
-              </p>
-            </div>
-          </footer>
+            </footer>
+          )}
           
           <div className="text-center text-xs text-gray-400 mt-4">
-            NutriTrack v1.1.3
+            NutriTrack v1.2.0
           </div>
         </div>
       );
