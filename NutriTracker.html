@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>NutriTrack - Mobile Diet Tracking App</title>
+  
+  <!-- Include React -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  
+  <!-- Include Babel for JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  
+  <!-- Include Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <style>
+    /* Hide scrollbar for Chrome, Safari and Opera */
+    .hide-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    
+    /* Hide scrollbar for IE, Edge and Firefox */
+    .hide-scrollbar {
+      -ms-overflow-style: none;  /* IE and Edge */
+      scrollbar-width: none;  /* Firefox */
+    }
+    
+    /* Custom slider styles */
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 8px;
+      border-radius: 10px;
+      background: #e5e7eb;
+      outline: none;
+    }
+    
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #4F46E5;
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    input[type=range]::-moz-range-thumb {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #4F46E5;
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    /* Add iOS-like look and feel */
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f9fafb;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      touch-action: manipulation;
+    }
+    
+    /* Prevent text selection */
+    .no-select {
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      -khtml-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+    }
+  </style>
+</head>
+<body class="bg-gray-50">
+  <div id="root" class="min-h-screen"></div>
+
+  <script type="text/babel">
+    const NutriTrack = () => {
+      // Food categories with their respective limits and colors
+      const FOOD_CATEGORIES = [
+        { id: 'carbs', name: 'Carbs', maxUnits: 5, color: '#E99D42', bgColor: '#FFEFD6' },
+        { id: 'proteins', name: 'Proteins', maxUnits: 7, color: '#4C72B0', bgColor: '#E1EAFA' },
+        { id: 'fats', name: 'Fats', maxUnits: 2, color: '#DD6E6E', bgColor: '#FBECEC' },
+        { id: 'vegetables', name: 'Vegetables', maxUnits: 5, color: '#55AD7A', bgColor: '#E7F5EE' }
+      ];
+
+      // State for tracking units of each food category
+      const [unitCounts, setUnitCounts] = React.useState({
+        carbs: 0,
+        proteins: 0,
+        fats: 0,
+        vegetables: 0
+      });
+      
+      // State for the reset slider
+      const [sliderValue, setSliderValue] = React.useState(0);
+      
+      // State for active touchable button
+      const [activeButton, setActiveButton] = React.useState(null);
+
+      // Function to handle incrementing a food category
+      const incrementUnit = (categoryId) => {
+        setUnitCounts(prevCounts => ({
+          ...prevCounts,
+          [categoryId]: prevCounts[categoryId] + 1
+        }));
+      };
+
+      // Function to handle decrementing a food category
+      const decrementUnit = (categoryId) => {
+        if (unitCounts[categoryId] > 0) {
+          setUnitCounts(prevCounts => ({
+            ...prevCounts,
+            [categoryId]: prevCounts[categoryId] - 1
+          }));
+        }
+      };
+
+      // Function to handle the reset slider change
+      const handleSliderChange = (e) => {
+        setSliderValue(parseInt(e.target.value, 10));
+        
+        // If slider is at max value, reset all counters
+        if (parseInt(e.target.value, 10) === 100) {
+          setUnitCounts({
+            carbs: 0,
+            proteins: 0,
+            fats: 0,
+            vegetables: 0
+          });
+          
+          // Reset slider after a short delay
+          setTimeout(() => {
+            setSliderValue(0);
+          }, 300);
+        }
+      };
+      
+      // Touch event handlers for better mobile experience
+      const handleTouchStart = (id, action) => {
+        setActiveButton(`${id}-${action}`);
+        if (action === 'inc') {
+          incrementUnit(id);
+        } else {
+          decrementUnit(id);
+        }
+      };
+      
+      const handleTouchEnd = () => {
+        setActiveButton(null);
+      };
+
+      // Function to render half-circles for a food category
+      const renderHalfCircles = (categoryId, maxUnits, color, bgColor) => {
+        const currentUnits = unitCounts[categoryId];
+        const isExceeded = currentUnits > maxUnits;
+        const fullUnits = isExceeded ? maxUnits : currentUnits;
+        const excessUnits = isExceeded ? currentUnits - maxUnits : 0;
+        
+        // Generate regular units (up to max)
+        const units = Array.from({ length: maxUnits }, (_, index) => {
+          const isFilled = index < fullUnits;
+          
+          return (
+            <div key={`unit-${index}`} className="flex">
+              <div 
+                className="w-3 h-8 rounded-l-full mr-px"
+                style={{ 
+                  backgroundColor: isFilled ? color : bgColor,
+                }}
+              />
+              <div 
+                className="w-3 h-8 rounded-r-full ml-px"
+                style={{ 
+                  backgroundColor: isFilled ? color : bgColor,
+                }}
+              />
+            </div>
+          );
+        });
+        
+        // Generate excess units (if any)
+        const excess = Array.from({ length: excessUnits }, (_, index) => {
+          return (
+            <div key={`excess-${index}`} className="flex">
+              <div 
+                className="w-3 h-8 rounded-l-full mr-px"
+                style={{ backgroundColor: '#FF3B30' }}
+              />
+              <div 
+                className="w-3 h-8 rounded-r-full ml-px"
+                style={{ backgroundColor: '#FF3B30' }}
+              />
+            </div>
+          );
+        });
+        
+        return [...units, ...excess];
+      };
+
+      return (
+        <div className="flex flex-col min-h-screen max-w-md mx-auto p-4 bg-white shadow-lg sm:my-4 sm:rounded-xl no-select">
+          <header className="mb-6 text-center">
+            <h1 className="text-2xl font-bold text-gray-800">NutriTrack</h1>
+            <p className="text-gray-600 text-sm">Track your daily food intake</p>
+          </header>
+          
+          <main className="flex-grow">
+            {FOOD_CATEGORIES.map(category => {
+              const currentUnits = unitCounts[category.id];
+              const isExceeded = currentUnits > category.maxUnits;
+              const isMaxed = currentUnits === category.maxUnits;
+              
+              // Determine label color based on status
+              let labelColor = 'text-gray-700';
+              if (isExceeded) {
+                labelColor = 'text-red-500';
+              } else if (isMaxed) {
+                labelColor = 'text-blue-500';
+              }
+              
+              return (
+                <div key={category.id} className="mb-4 bg-white rounded-lg p-3 shadow-sm border border-gray-100">
+                  <div className="flex justify-between items-center mb-2">
+                    <h2 className={`text-lg font-semibold ${labelColor}`}>
+                      {category.name} ({currentUnits}/{category.maxUnits})
+                    </h2>
+                    <div className="flex space-x-2">
+                      <button 
+                        onClick={() => decrementUnit(category.id)}
+                        onTouchStart={() => handleTouchStart(category.id, 'dec')}
+                        onTouchEnd={handleTouchEnd}
+                        disabled={currentUnits <= 0}
+                        className={`w-12 h-12 flex items-center justify-center text-lg font-bold rounded-full focus:outline-none transition-colors duration-150 ${
+                          activeButton === `${category.id}-dec` 
+                            ? 'bg-gray-300 text-gray-700' 
+                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        } disabled:opacity-40`}
+                        aria-label={`Decrease ${category.name}`}
+                      >
+                        -
+                      </button>
+                      <button 
+                        onClick={() => incrementUnit(category.id)}
+                        onTouchStart={() => handleTouchStart(category.id, 'inc')}
+                        onTouchEnd={handleTouchEnd}
+                        className={`w-12 h-12 flex items-center justify-center text-lg font-bold rounded-full focus:outline-none transition-colors duration-150 ${
+                          activeButton === `${category.id}-inc` 
+                            ? 'bg-gray-300 text-gray-700' 
+                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        }`}
+                        aria-label={`Increase ${category.name}`}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="flex space-x-1 overflow-x-auto py-2 hide-scrollbar">
+                    {renderHalfCircles(category.id, category.maxUnits, category.color, category.bgColor)}
+                  </div>
+                </div>
+              );
+            })}
+          </main>
+          
+          <footer className="mt-4 mb-4">
+            <div className="bg-gray-100 p-4 rounded-lg shadow-inner">
+              <p className="text-center text-gray-600 mb-3 text-sm">Slide to reset all tracking</p>
+              <div className="relative">
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={sliderValue}
+                  onChange={handleSliderChange}
+                  className="w-full h-8 rounded-full outline-none"
+                  style={{
+                    background: `linear-gradient(to right, #e5e7eb 0%, #e5e7eb ${sliderValue}%, #e5e7eb ${sliderValue}%, #e5e7eb 100%)`,
+                  }}
+                />
+                <div 
+                  className="absolute top-0 left-0 h-8 rounded-full pointer-events-none"
+                  style={{
+                    width: `${sliderValue}%`,
+                    background: sliderValue > 95 ? '#4F46E5' : '#9CA3AF',
+                    transition: 'background-color 0.2s ease'
+                  }}
+                />
+              </div>
+              <p className="text-center text-xs text-gray-500 mt-2">
+                {sliderValue > 95 ? 'Release to reset' : 'Slide all the way to reset'}
+              </p>
+            </div>
+          </footer>
+          
+          <div className="text-center text-xs text-gray-400 mt-4">
+            NutriTrack v1.0.0
+          </div>
+        </div>
+      );
+    };
+
+    // Mount the React app
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<NutriTrack />);
+  </script>
+</body>
+</html>
