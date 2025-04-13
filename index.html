@@ -145,9 +145,10 @@
       // Touch event handlers for better mobile experience
       const handleTouchStart = (id, action) => {
         setActiveButton(`${id}-${action}`);
+        // Only handle the increment/decrement on touch start, not on both touch and click
         if (action === 'inc') {
           incrementUnit(id);
-        } else {
+        } else if (action === 'dec' && unitCounts[id] > 0) {
           decrementUnit(id);
         }
       };
@@ -233,9 +234,14 @@
                     </h2>
                     <div className="flex space-x-2">
                       <button 
-                        onClick={() => decrementUnit(category.id)}
                         onTouchStart={() => handleTouchStart(category.id, 'dec')}
                         onTouchEnd={handleTouchEnd}
+                        onClick={(e) => {
+                          // Only handle click events that aren't from touch
+                          if (e.pointerType === undefined) {
+                            decrementUnit(category.id);
+                          }
+                        }}
                         disabled={currentUnits <= 0}
                         className={`w-12 h-12 flex items-center justify-center text-lg font-bold rounded-full focus:outline-none transition-colors duration-150 ${
                           activeButton === `${category.id}-dec` 
@@ -247,9 +253,14 @@
                         -
                       </button>
                       <button 
-                        onClick={() => incrementUnit(category.id)}
                         onTouchStart={() => handleTouchStart(category.id, 'inc')}
                         onTouchEnd={handleTouchEnd}
+                        onClick={(e) => {
+                          // Only handle click events that aren't from touch
+                          if (e.pointerType === undefined) {
+                            incrementUnit(category.id);
+                          }
+                        }}
                         className={`w-12 h-12 flex items-center justify-center text-lg font-bold rounded-full focus:outline-none transition-colors duration-150 ${
                           activeButton === `${category.id}-inc` 
                             ? 'bg-gray-300 text-gray-700' 
