@@ -23,6 +23,23 @@ const loadFromCookie = () => {
           if (savedState && typeof savedState === 'object') {
             // Format has changed - if we have history array, great
             if (Array.isArray(savedState.history)) {
+              // Check if we need to migrate dayType field
+              const needsDayTypeMigration = !savedState.currentDay.hasOwnProperty('dayType');
+              
+              if (needsDayTypeMigration) {
+                // Add dayType to currentDay
+                savedState.currentDay.dayType = 'normal';
+                
+                // Add dayType to each history item
+                savedState.history = savedState.history.map(day => ({ 
+                  ...day, 
+                  dayType: day.dayType || 'normal' 
+                }));
+                
+                // Save the migrated data
+                saveToCookie(savedState);
+              }
+              
               return savedState;
             }
             
@@ -30,11 +47,13 @@ const loadFromCookie = () => {
             const today = new Date().toISOString().split('T')[0];
             const validState = {
               currentDay: {
-                date: today
+                date: today,
+                dayType: 'normal' // Add default day type
               },
               history: [
                 {
-                  date: today
+                  date: today,
+                  dayType: 'normal' // Add default day type
                 }
               ]
             };
