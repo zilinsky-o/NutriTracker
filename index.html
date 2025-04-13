@@ -101,8 +101,27 @@
       // State for the reset slider
       const [sliderValue, setSliderValue] = React.useState(0);
       
-      // State for active touchable button
+      // Track if touch is active to prevent double-firing with click
+      const [isTouchActive, setIsTouchActive] = React.useState(false);
+      
+      // State for active button UI
       const [activeButton, setActiveButton] = React.useState(null);
+      
+      // Use useEffect to prevent mobile double-tap issues
+      React.useEffect(() => {
+        // Add event listener to detect touch devices
+        const touchStartHandler = () => {
+          setIsTouchActive(true);
+          // Remove event listener once we know it's a touch device
+          window.removeEventListener('touchstart', touchStartHandler);
+        };
+        
+        window.addEventListener('touchstart', touchStartHandler);
+        
+        return () => {
+          window.removeEventListener('touchstart', touchStartHandler);
+        };
+      }, []);
 
       // Function to handle incrementing a food category
       const incrementUnit = (categoryId) => {
@@ -145,7 +164,8 @@
       // Touch event handlers for better mobile experience
       const handleTouchStart = (id, action) => {
         setActiveButton(`${id}-${action}`);
-        // Only handle the increment/decrement on touch start, not on both touch and click
+        
+        // Handle increment/decrement only once
         if (action === 'inc') {
           incrementUnit(id);
         } else if (action === 'dec' && unitCounts[id] > 0) {
@@ -155,6 +175,18 @@
       
       const handleTouchEnd = () => {
         setActiveButton(null);
+      };
+      
+      // Handle click only for non-touch devices
+      const handleButtonClick = (id, action) => {
+        // Skip if this is a touch device (to prevent double counting)
+        if (isTouchActive) return;
+        
+        if (action === 'inc') {
+          incrementUnit(id);
+        } else if (action === 'dec' && unitCounts[id] > 0) {
+          decrementUnit(id);
+        }
       };
 
       // Function to render half-circles for a food category
@@ -236,12 +268,7 @@
                       <button 
                         onTouchStart={() => handleTouchStart(category.id, 'dec')}
                         onTouchEnd={handleTouchEnd}
-                        onClick={(e) => {
-                          // Only handle click events that aren't from touch
-                          if (e.pointerType === undefined) {
-                            decrementUnit(category.id);
-                          }
-                        }}
+                        onClick={() => handleButtonClick(category.id, 'dec')}
                         disabled={currentUnits <= 0}
                         className={`w-12 h-12 flex items-center justify-center text-lg font-bold rounded-full focus:outline-none transition-colors duration-150 ${
                           activeButton === `${category.id}-dec` 
@@ -255,12 +282,7 @@
                       <button 
                         onTouchStart={() => handleTouchStart(category.id, 'inc')}
                         onTouchEnd={handleTouchEnd}
-                        onClick={(e) => {
-                          // Only handle click events that aren't from touch
-                          if (e.pointerType === undefined) {
-                            incrementUnit(category.id);
-                          }
-                        }}
+                        onClick={() => handleButtonClick(category.id, 'inc')}
                         className={`w-12 h-12 flex items-center justify-center text-lg font-bold rounded-full focus:outline-none transition-colors duration-150 ${
                           activeButton === `${category.id}-inc` 
                             ? 'bg-gray-300 text-gray-700' 
@@ -312,7 +334,7 @@
           </footer>
           
           <div className="text-center text-xs text-gray-400 mt-4">
-            NutriTrack v1.0.0
+            NutriTrack v1.0.1
           </div>
         </div>
       );
