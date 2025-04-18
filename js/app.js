@@ -51,6 +51,9 @@ const NutriTrack = () => {
   const updateUnitCount = (categoryId, newValue) => {
     if (newValue < 0) return;
     
+    // Round to nearest half unit to avoid floating point issues
+    newValue = Math.round(newValue * 2) / 2;
+    
     setAppState(prevState => {
       // Find the history index for today (should be index 0, but let's be safe)
       const today = new Date().toISOString().split('T')[0];
@@ -81,12 +84,12 @@ const NutriTrack = () => {
   };
   
   const incrementUnit = (categoryId) => {
-    updateUnitCount(categoryId, unitCounts[categoryId] + 1);
+    updateUnitCount(categoryId, unitCounts[categoryId] + UNIT_INCREMENT);
   };
 
   const decrementUnit = (categoryId) => {
-    if (unitCounts[categoryId] > 0) {
-      updateUnitCount(categoryId, unitCounts[categoryId] - 1);
+    if (unitCounts[categoryId] >= UNIT_INCREMENT) {
+      updateUnitCount(categoryId, unitCounts[categoryId] - UNIT_INCREMENT);
     }
   };
   
