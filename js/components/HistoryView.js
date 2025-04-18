@@ -29,6 +29,19 @@ const getDayTypeName = (dayType) => {
   return dayTypeObj.name;
 };
 
+// Format unit number for display
+const formatUnitNumber = (value) => {
+  if (value === undefined || value === null) return '0';
+  
+  // If it's a whole number, don't show the decimal
+  if (value === Math.floor(value)) {
+    return value.toString();
+  }
+  
+  // Otherwise, show with 1 decimal place
+  return value.toFixed(1);
+};
+
 // History View component
 const HistoryView = ({ history }) => {
   return (
@@ -58,11 +71,11 @@ const HistoryView = ({ history }) => {
               return (
                 <div key={`${day.date}-${category.id}`} className="flex items-center">
                   <div className="w-24 text-sm text-gray-600">{category.name}</div>
-                  <div className="flex-grow flex flex-wrap space-x-1">
+                  <div className="flex-grow flex flex-wrap">
                     {renderHalfCircles(category.id, category, day)}
                   </div>
-                  <div className="w-12 text-right text-sm font-medium" style={{ color: category.color }}>
-                    {day[category.id] || 0}{isFreeMealDay ? '' : `/${maxUnits}`}
+                  <div className="w-16 text-right text-sm font-medium" style={{ color: category.color }}>
+                    {formatUnitNumber(day[category.id] || 0)}{isFreeMealDay ? '' : `/${formatUnitNumber(maxUnits)}`}
                   </div>
                 </div>
               );
