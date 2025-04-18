@@ -21,39 +21,126 @@ const renderHalfCircles = (categoryId, category, dayData) => {
   // For free days, adapt the number of circles shown
   // We want to show at least the normal day max (for reference) plus any excess
   const displayMax = isFreeMealDay 
-    ? Math.max(category.maxUnits.normal, currentUnits)
+    ? Math.max(category.maxUnits.normal, Math.ceil(currentUnits))
     : maxUnits;
   
-  const units = Array.from({ length: displayMax }, (_, index) => {
-    const isFilled = index < fullUnits;
+  // Each full unit is represented by 2 half-circles
+  const totalHalfCircles = displayMax * 2;
+  const fullHalfCircles = fullUnits * 2;
+  
+  // Handle half units by calculating how many full and half circles to show
+  const fullCirclesToShow = Math.floor(fullHalfCircles / 2);
+  const hasHalfCircle = fullHalfCircles % 2 === 1;
+  
+  // Create empty containers for all possible half circles
+  const units = Array.from({ length: totalHalfCircles }, (_, index) => {
+    const isLeft = index % 2 === 0;
+    const pairIndex = Math.floor(index / 2);
+    
+    // Determine if this half-circle should be filled
+    let isFilled;
+    if (fullCirclesToShow > pairIndex) {
+      // Both halves of this circle are filled
+      isFilled = true;
+    } else if (fullCirclesToShow === pairIndex && hasHalfCircle && isLeft) {
+      // Only the left half of this circle is filled (for half units)
+      isFilled = true;
+    } else {
+      // This half-circle is not filled
+      isFilled = false;
+    }
     
     return (
       <div 
-        key={`unit-${index}`} 
-        className="w-5 h-5 rounded-l-full"
+        key={`half-${index}`} 
+        className={`w-5 h-5 ${isLeft ? 'rounded-l-full' : 'rounded-r-full'}`}
         style={{ 
           backgroundColor: isFilled ? category.color : category.bgColor,
-          margin: '0 2px'
+          margin: '0 0px'
         }}
       />
     );
   });
   
-  // Only add excess units if not a free meal day
-  const excess = !isFreeMealDay ? Array.from({ length: excessUnits }, (_, index) => {
+  // Handle excess units the same way
+  const excessHalfCircles = excessUnits * 2;
+  const excessFullCircles = Math.floor(excessHalfCircles / 2);
+  const hasExcessHalf = excessHalfCircles % 2 === 1;
+  
+  const excess = !isFreeMealDay ? Array.from({ length: excessHalfCircles }, (_, index) => {
+    const isLeft = index % 2 === 0;
+    const pairIndex = Math.floor(index / 2);
+    
+    let isExcessFilled = false;
+    if (excessFullCircles > pairIndex) {
+      isExcessFilled = true;
+    } else if (excessFullCircles === pairIndex && hasExcessHalf && isLeft) {
+      isExcessFilled = true;
+    }
+    
     return (
       <div 
-        key={`excess-${index}`} 
-        className="w-5 h-5 rounded-l-full"
+        key={`excess-half-${index}`} 
+        className={`w-5 h-5 ${isLeft ? 'rounded-l-full' : 'rounded-r-full'}`}
         style={{ 
-          backgroundColor: '#FF3B30',
-          margin: '0 2px'
+          backgroundColor: isExcessFilled ? '#FF3B30' : category.bgColor,
+          margin: '0 0px'
         }}
       />
     );
   }) : [];
   
-  return [...units, ...excess];
+  // Group the half-circles into pairs for better visual display
+  const pairedUnits = [];
+  for (let i = 0; i < units.length; i += 2) {
+    if (i + 1 < units.length) {
+      pairedUnits.push(
+        <div key={`pair-${i}`} className="flex" style={{ margin: '0 1px' }}>
+          {units[i]}
+          {units[i + 1]}
+        </div>
+      );
+    } else {
+      // Just in case there's an odd number
+      pairedUnits.push(
+        <div key={`pair-${i}`} className="flex" style={{ margin: '0 1px' }}>
+          {units[i]}
+        </div>
+      );
+    }
+  }
+  
+  // Group excess half-circles the same way
+  const pairedExcess = [];
+  for (let i = 0; i < excess.length; i += 2) {
+    if (i + 1 < excess.length) {
+      pairedExcess.push(
+        <div key={`excess-pair-${i}`} className="flex" style={{ margin: '0 1px' }}>
+          {excess[i]}
+          {excess[i + 1]}
+        </div>
+      );
+    } else {
+      pairedExcess.push(
+        <div key={`excess-pair-${i}`} className="flex" style={{ margin: '0 1px' }}>
+          {excess[i]}
+        </div>
+      );
+    }
+  }
+  
+  return [...pairedUnits, ...pairedExcess];
+};
+
+// Format the unit number with a single decimal place if needed
+const formatUnitNumber = (value) => {
+  // If it's a whole number, don't show the decimal
+  if (value === Math.floor(value)) {
+    return value.toString();
+  }
+  
+  // Otherwise, show with 1 decimal place
+  return value.toFixed(1);
 };
 
 // Food Category component
@@ -71,7 +158,7 @@ const FoodCategory = ({
   
   // Only apply exceeded and maxed styling for normal and sport days
   const isExceeded = !isFreeMealDay && isFinite(maxUnits) && unitCount > maxUnits;
-  const isMaxed = !isFreeMealDay && unitCount === maxUnits;
+  const isMaxed = !isFreeMealDay && Math.abs(unitCount - maxUnits) < 0.01; // Close enough to max
   
   let labelColor = 'text-gray-700';
   if (isExceeded) {
@@ -84,7 +171,8 @@ const FoodCategory = ({
     <div className="mb-4 bg-white rounded-lg p-3 shadow-sm border border-gray-100">
       <div className="flex justify-between items-center mb-2">
         <h2 className={`text-lg font-semibold ${labelColor}`}>
-          {category.name} ({unitCount}{isFreeMealDay ? '' : `/${maxUnits}`})
+          {category.name} ({formatUnitNumber(unitCount)}
+          {isFreeMealDay ? '' : `/${formatUnitNumber(maxUnits)}`})
         </h2>
         <div className="flex space-x-2">
           <button 
@@ -117,7 +205,7 @@ const FoodCategory = ({
         </div>
       </div>
       
-      <div className="flex flex-wrap space-x-1 py-2 hide-scrollbar">
+      <div className="flex flex-wrap py-2 hide-scrollbar">
         {renderHalfCircles(category.id, category, { [category.id]: unitCount, dayType })}
       </div>
     </div>
