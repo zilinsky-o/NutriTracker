@@ -2,13 +2,29 @@
 // Renders a single food category with controls and visual representation
 
 // Render half circles for a food category
-const renderHalfCircles = (categoryId, maxUnits, color, bgColor, dayData) => {
+const renderHalfCircles = (categoryId, category, dayData) => {
   const currentUnits = dayData[categoryId] || 0;
-  const isExceeded = currentUnits > maxUnits;
-  const fullUnits = isExceeded ? maxUnits : currentUnits;
-  const excessUnits = isExceeded ? currentUnits - maxUnits : 0;
+  const dayType = dayData.dayType || 'normal';
+  const maxUnits = category.maxUnits[dayType];
   
-  const units = Array.from({ length: maxUnits }, (_, index) => {
+  // For free meal days, we don't show excess units in red
+  const isFreeMealDay = dayType === 'free';
+  
+  // Only check for exceeded if it's not a free meal day and maxUnits is finite
+  const isExceeded = !isFreeMealDay && isFinite(maxUnits) && currentUnits > maxUnits;
+  
+  // For regular days, cap the visual display at maxUnits
+  // For free days, show all units in the regular color
+  const fullUnits = isFreeMealDay ? currentUnits : (isExceeded ? maxUnits : currentUnits);
+  const excessUnits = isFreeMealDay ? 0 : (isExceeded ? currentUnits - maxUnits : 0);
+  
+  // For free days, adapt the number of circles shown
+  // We want to show at least the normal day max (for reference) plus any excess
+  const displayMax = isFreeMealDay 
+    ? Math.max(category.maxUnits.normal, currentUnits)
+    : maxUnits;
+  
+  const units = Array.from({ length: displayMax }, (_, index) => {
     const isFilled = index < fullUnits;
     
     return (
@@ -16,14 +32,15 @@ const renderHalfCircles = (categoryId, maxUnits, color, bgColor, dayData) => {
         key={`unit-${index}`} 
         className="w-5 h-5 rounded-l-full"
         style={{ 
-          backgroundColor: isFilled ? color : bgColor,
+          backgroundColor: isFilled ? category.color : category.bgColor,
           margin: '0 2px'
         }}
       />
     );
   });
   
-  const excess = Array.from({ length: excessUnits }, (_, index) => {
+  // Only add excess units if not a free meal day
+  const excess = !isFreeMealDay ? Array.from({ length: excessUnits }, (_, index) => {
     return (
       <div 
         key={`excess-${index}`} 
@@ -34,7 +51,7 @@ const renderHalfCircles = (categoryId, maxUnits, color, bgColor, dayData) => {
         }}
       />
     );
-  });
+  }) : [];
   
   return [...units, ...excess];
 };
@@ -43,13 +60,18 @@ const renderHalfCircles = (categoryId, maxUnits, color, bgColor, dayData) => {
 const FoodCategory = ({ 
   category, 
   unitCount, 
+  dayType,
   activeButton, 
   onTouchStart, 
   onTouchEnd, 
   onClick 
 }) => {
-  const isExceeded = unitCount > category.maxUnits;
-  const isMaxed = unitCount === category.maxUnits;
+  const maxUnits = category.maxUnits[dayType];
+  const isFreeMealDay = dayType === 'free';
+  
+  // Only apply exceeded and maxed styling for normal and sport days
+  const isExceeded = !isFreeMealDay && isFinite(maxUnits) && unitCount > maxUnits;
+  const isMaxed = !isFreeMealDay && unitCount === maxUnits;
   
   let labelColor = 'text-gray-700';
   if (isExceeded) {
@@ -62,7 +84,7 @@ const FoodCategory = ({
     <div className="mb-4 bg-white rounded-lg p-3 shadow-sm border border-gray-100">
       <div className="flex justify-between items-center mb-2">
         <h2 className={`text-lg font-semibold ${labelColor}`}>
-          {category.name} ({unitCount}/{category.maxUnits})
+          {category.name} ({unitCount}{isFreeMealDay ? '' : `/${maxUnits}`})
         </h2>
         <div className="flex space-x-2">
           <button 
@@ -96,7 +118,7 @@ const FoodCategory = ({
       </div>
       
       <div className="flex flex-wrap space-x-1 py-2 hide-scrollbar">
-        {renderHalfCircles(category.id, category.maxUnits, category.color, category.bgColor, { [category.id]: unitCount })}
+        {renderHalfCircles(category.id, category, { [category.id]: unitCount, dayType })}
       </div>
     </div>
   );
