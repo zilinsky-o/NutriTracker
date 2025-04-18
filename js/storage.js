@@ -11,6 +11,41 @@ const saveToCookie = (state) => {
   }
 };
 
+// Migrate data to half units
+const migrateToHalfUnits = (data) => {
+  // Get all category IDs
+  const categoryIds = FOOD_CATEGORIES.map(cat => cat.id);
+  
+  // Update current day values
+  categoryIds.forEach(catId => {
+    if (typeof data.currentDay[catId] === 'number' && Number.isInteger(data.currentDay[catId])) {
+      data.currentDay[catId] = data.currentDay[catId] / 2;
+    }
+  });
+  
+  // Update history values
+  if (Array.isArray(data.history)) {
+    data.history.forEach(day => {
+      categoryIds.forEach(catId => {
+        if (typeof day[catId] === 'number' && Number.isInteger(day[catId])) {
+          day[catId] = day[catId] / 2;
+        }
+      });
+    });
+  }
+  
+  // Set schema version to current
+  data.currentDay.schemaVersion = DATA_SCHEMA_VERSION;
+  
+  if (Array.isArray(data.history)) {
+    data.history.forEach(day => {
+      day.schemaVersion = DATA_SCHEMA_VERSION;
+    });
+  }
+  
+  return data;
+};
+
 // Load state from cookie, with data migration handling
 const loadFromCookie = () => {
   try {
@@ -21,6 +56,8 @@ const loadFromCookie = () => {
         try {
           const savedState = JSON.parse(value);
           if (savedState && typeof savedState === 'object') {
+            let needsMigration = false;
+            
             // Format has changed - if we have history array, great
             if (Array.isArray(savedState.history)) {
               // Check if we need to migrate dayType field
@@ -36,7 +73,21 @@ const loadFromCookie = () => {
                   dayType: day.dayType || 'normal' 
                 }));
                 
-                // Save the migrated data
+                needsMigration = true;
+              }
+              
+              // Check if we need to migrate to half units
+              const needsHalfUnitMigration = 
+                !savedState.currentDay.hasOwnProperty('schemaVersion') || 
+                savedState.currentDay.schemaVersion < DATA_SCHEMA_VERSION;
+              
+              if (needsHalfUnitMigration) {
+                savedState = migrateToHalfUnits(savedState);
+                needsMigration = true;
+              }
+              
+              // Save the migrated data if needed
+              if (needsMigration) {
                 saveToCookie(savedState);
               }
               
@@ -48,22 +99,29 @@ const loadFromCookie = () => {
             const validState = {
               currentDay: {
                 date: today,
-                dayType: 'normal' // Add default day type
+                dayType: 'normal', // Add default day type
+                schemaVersion: DATA_SCHEMA_VERSION
               },
               history: [
                 {
                   date: today,
-                  dayType: 'normal' // Add default day type
+                  dayType: 'normal', // Add default day type
+                  schemaVersion: DATA_SCHEMA_VERSION
                 }
               ]
             };
             
-            // Migrate old values
+            // Migrate old values with half units
             for (const category of FOOD_CATEGORIES) {
               const categoryId = category.id;
-              const val = (savedState.hasOwnProperty(categoryId) && 
+              let val = (savedState.hasOwnProperty(categoryId) && 
                 typeof savedState[categoryId] === 'number' && 
                 savedState[categoryId] >= 0) ? savedState[categoryId] : 0;
+              
+              // Convert to half units if it's an integer
+              if (Number.isInteger(val)) {
+                val = val / 2;
+              }
               
               validState.currentDay[categoryId] = val;
               validState.history[0][categoryId] = val;
