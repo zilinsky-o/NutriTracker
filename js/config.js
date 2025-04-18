@@ -28,8 +28,8 @@ const FOOD_CATEGORIES = [
     id: 'carbs', 
     name: 'Carbs', 
     maxUnits: {
-      normal: 5,
-      sport: 9,
+      normal: 2.5,
+      sport: 4.5,
       free: Infinity
     }, 
     color: '#E99D42', 
@@ -39,8 +39,8 @@ const FOOD_CATEGORIES = [
     id: 'proteins', 
     name: 'Proteins', 
     maxUnits: {
-      normal: 7,
-      sport: 6,
+      normal: 3.5,
+      sport: 3.0,
       free: Infinity
     }, 
     color: '#4C72B0', 
@@ -50,8 +50,8 @@ const FOOD_CATEGORIES = [
     id: 'fats', 
     name: 'Fats', 
     maxUnits: {
-      normal: 2,
-      sport: 2,
+      normal: 1.0,
+      sport: 1.0,
       free: Infinity
     }, 
     color: '#DD6E6E', 
@@ -61,8 +61,8 @@ const FOOD_CATEGORIES = [
     id: 'vegetables', 
     name: 'Vegetables', 
     maxUnits: {
-      normal: 5,
-      sport: 5,
+      normal: 2.5,
+      sport: 2.5,
       free: Infinity
     }, 
     color: '#55AD7A', 
@@ -71,7 +71,13 @@ const FOOD_CATEGORIES = [
 ];
 
 // App version
-const APP_VERSION = '1.3.0';
+const APP_VERSION = '1.4.0';
+
+// Current data schema version for migrations
+const DATA_SCHEMA_VERSION = 2;
+
+// Increment size for unit steps
+const UNIT_INCREMENT = 0.5;
 
 // Maximum days to keep in history
 const MAX_HISTORY_DAYS = 7;
@@ -83,5 +89,6 @@ const getDefaultDayState = () => ({
   fats: 0,
   vegetables: 0,
   dayType: 'normal', // Default day type
-  date: new Date().toISOString().split('T')[0] // Store current date in YYYY-MM-DD format
+  date: new Date().toISOString().split('T')[0], // Store current date in YYYY-MM-DD format
+  schemaVersion: DATA_SCHEMA_VERSION // Track schema version for migrations
 });
