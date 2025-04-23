@@ -18,7 +18,8 @@ NutriTrack helps users maintain dietary awareness through visual unit tracking w
   - Normal Day (🍃): Standard nutritional limits
   - Sport Day (🚴): Higher protein and carb limits for workout days
   - Free Meal Day (🍰): No maximum limits
-- 7-day history tracking
+- 14-day history tracking
+- Edit previous days' entries
 - Mobile-optimized responsive design
 - Color-coded feedback (blue at max, red for excess)
 - Slider-based reset functionality
@@ -39,6 +40,7 @@ nutritrack/
 │   ├── components/
 │   │   ├── FoodCategory.js    // Food category component
 │   │   ├── HistoryView.js     // History display component
+│   │   ├── EditDayView.js     // Day editing component
 │   │   ├── ResetSlider.js     // Slider reset component
 │   │   └── DayTypeSelector.js // Day type toggle component
 │   └── app.js           // Main application logic
@@ -63,8 +65,9 @@ nutritrack/
    - 🍰 Free Meal Day: No maximum limits
 4. Use the `+` and `-` buttons to track your consumption for each category (each click adds/subtracts 0.5 units)
 5. The app automatically saves your progress in browser cookies
-6. View your 7-day history by clicking the "Show History" button
-7. Use the slider to reset today's tracking if needed
+6. View your 14-day history by clicking the "Show History" button
+7. Edit past days by clicking the pencil icon next to each day in history view
+8. Use the slider to reset today's tracking if needed
 
 ## Day Types Explained
 
@@ -112,4 +115,18 @@ MIT
 
 ## Version
 
-Current Version: 1.4.0
+Current Version: 1.5.0
+
+## Changelog
+
+### v1.5.0
+- Extended history tracking from 7 to 14 days
+- Added ability to edit historical days
+- Improved data storage efficiency
+- Bug fixes and performance improvements
+
+### v1.4.0
+- Initial documented version
+- Visual half-circle tracking
+- Three day types with different limits
+- 7-day history tracking
