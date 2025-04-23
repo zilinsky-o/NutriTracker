@@ -9,6 +9,8 @@ const NutriTrack = () => {
   const [activeButton, setActiveButton] = React.useState(null);
   const [showHistory, setShowHistory] = React.useState(false);
   const [editingDay, setEditingDay] = React.useState(null);
+  const [shareUrl, setShareUrl] = React.useState('');
+  const [showShareToast, setShowShareToast] = React.useState(false);
   
   // Shorthand for current day's unit counts
   const unitCounts = appState.currentDay;
@@ -263,6 +265,23 @@ const NutriTrack = () => {
     setEditingDay(null);
     setShowHistory(true);
   };
+  
+  const shareConfiguration = () => {
+    const url = generateConfigUrl();
+    setShareUrl(url);
+    
+    // Try to copy to clipboard
+    try {
+      navigator.clipboard.writeText(url).then(() => {
+        setShowShareToast(true);
+        setTimeout(() => setShowShareToast(false), 3000);
+      });
+    } catch (err) {
+      // Clipboard API not available, just show the URL
+      setShowShareToast(true);
+      setTimeout(() => setShowShareToast(false), 5000);
+    }
+  };
 
   return (
     <div className="flex flex-col min-h-screen max-w-md mx-auto p-4 bg-white shadow-lg sm:my-4 sm:rounded-xl no-select">
@@ -272,10 +291,25 @@ const NutriTrack = () => {
         
         {/* Show different UI elements based on current mode */}
         {!editingDay && !showHistory && (
-          <DayTypeSelector 
-            currentDayType={unitCounts.dayType || 'normal'} 
-            onChange={(newType) => handleDayTypeChange(newType)}
-          />
+          <div>
+            <DayTypeSelector 
+              currentDayType={unitCounts.dayType || 'normal'} 
+              onChange={(newType) => handleDayTypeChange(newType)}
+            />
+            
+            <div className="mt-2 mb-2 text-xs text-gray-500 flex justify-center">
+              <button 
+                onClick={shareConfiguration}
+                className="flex items-center text-indigo-600 hover:text-indigo-800"
+                title="Share this configuration"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                </svg>
+                Share config
+              </button>
+            </div>
+          </div>
         )}
         
         {!editingDay && (
@@ -291,6 +325,21 @@ const NutriTrack = () => {
       </header>
       
       <main className="flex-grow">
+        {/* Toast notification for share */}
+        {showShareToast && (
+          <div className="fixed top-4 left-0 right-0 mx-auto w-11/12 max-w-md bg-green-100 border border-green-200 text-green-700 px-4 py-3 rounded shadow-md flex justify-between items-center z-50">
+            <span>Configuration URL copied to clipboard!</span>
+            <button 
+              onClick={() => setShowShareToast(false)}
+              className="text-green-700 hover:text-green-900"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
+        )}
+      
         {editingDay ? (
           // Editing a historical day
           <EditDayView
