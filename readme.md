@@ -152,9 +152,13 @@ MIT
 
 ## Version
 
-Current Version: 1.6.0
+Current Version: 1.6.1
 
 ## Changelog
+
+### v1.6.1
+- Removed share configuration button
+- Streamlined user interface
 
 ### v1.6.0
 - Added URL parameter support for customizing food category limits
