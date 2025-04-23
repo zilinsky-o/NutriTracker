@@ -86,3 +86,31 @@ const loadFromCookie = () => {
     history: [{ ...defaultDay }]
   };
 };
+
+// Generate URL with current unit configuration
+const generateConfigUrl = () => {
+  // Extract the units from the current configuration
+  const normalUnits = FOOD_CATEGORIES.map(cat => Math.round(cat.maxUnits.normal * 10)).join('-');
+  const sportUnits = FOOD_CATEGORIES.map(cat => Math.round(cat.maxUnits.sport * 10)).join('-');
+  
+  // Check if normal and sport are the same
+  const normalValues = normalUnits.split('-');
+  const sportValues = sportUnits.split('-');
+  
+  let isSame = true;
+  for (let i = 0; i < normalValues.length; i++) {
+    if (normalValues[i] !== sportValues[i]) {
+      isSame = false;
+      break;
+    }
+  }
+  
+  // If normal and sport are the same, only include normal units
+  const paramValue = isSame ? normalUnits : `${normalUnits}-${sportUnits}`;
+  
+  // Get the current URL and update the u parameter
+  const url = new URL(window.location.href);
+  url.searchParams.set('u', paramValue);
+  
+  return url.toString();
+};
