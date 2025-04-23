@@ -71,7 +71,7 @@ const FOOD_CATEGORIES = [
 ];
 
 // App version
-const APP_VERSION = '1.4.0';
+const APP_VERSION = '1.5.0';
 
 // Current data schema version for migrations
 const DATA_SCHEMA_VERSION = 2;
@@ -80,7 +80,7 @@ const DATA_SCHEMA_VERSION = 2;
 const UNIT_INCREMENT = 0.5;
 
 // Maximum days to keep in history
-const MAX_HISTORY_DAYS = 7;
+const MAX_HISTORY_DAYS = 14;
 
 // Helper to get default state for a single day
 const getDefaultDayState = () => ({
