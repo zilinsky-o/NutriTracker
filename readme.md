@@ -20,6 +20,7 @@ NutriTrack helps users maintain dietary awareness through visual unit tracking w
   - Free Meal Day (🍰): No maximum limits
 - 14-day history tracking
 - Edit previous days' entries
+- Customizable food category limits via URL parameters
 - Mobile-optimized responsive design
 - Color-coded feedback (blue at max, red for excess)
 - Slider-based reset functionality
@@ -87,6 +88,42 @@ nutritrack/
 - No limits on any category
 - No red warning indicators
 
+## URL Parameters
+
+NutriTrack supports customizing the food category limits through URL parameters. This is useful for personalized nutrition plans or sharing specific configurations.
+
+### Parameter Format
+
+Use the `u` parameter with an ultra-compact format:
+
+```
+?u=25-35-10-25
+```
+
+This example sets:
+- Carbs: 2.5 units
+- Proteins: 3.5 units
+- Fats: 1.0 unit
+- Vegetables: 2.5 units
+
+All values are multiplied by 10 to eliminate decimal points (2.5 becomes 25).
+
+### Setting Different Sport Day Values
+
+To set different values for Sport Day:
+
+```
+?u=25-35-10-25-45-30-10-25
+```
+
+The first four values are for Normal Day, the next four are for Sport Day.
+
+### Notes
+
+- If only 4 values are provided, they will be used for both Normal and Sport days
+- Free Meal Day always has unlimited units, but will display empty unit indicators based on the Normal Day values
+- If no URL parameter is provided, default configuration is used
+
 ## Development
 
 This project is structured in a way that each component and functional area is separated into its own file, making it easier to maintain and extend.
@@ -115,9 +152,14 @@ MIT
 
 ## Version
 
-Current Version: 1.5.1
+Current Version: 1.6.0
 
 ## Changelog
+
+### v1.6.0
+- Added URL parameter support for customizing food category limits
+- Improved handling of different day type configurations
+- Added documentation for URL parameter usage
 
 ### v1.5.1
 - Fixed issues with history day editing functionality
