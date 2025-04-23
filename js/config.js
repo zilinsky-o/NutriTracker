@@ -22,8 +22,8 @@ const DAY_TYPES = [
   }
 ];
 
-// Define food categories with their properties for different day types
-const FOOD_CATEGORIES = [
+// Default food categories with their properties for different day types
+const DEFAULT_FOOD_CATEGORIES = [
   { 
     id: 'carbs', 
     name: 'Carbs', 
@@ -70,8 +70,55 @@ const FOOD_CATEGORIES = [
   }
 ];
 
+// Parse URL parameters to override default food category values
+const parseUrlParameters = () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const unitsParam = urlParams.get('u');
+  
+  if (!unitsParam) {
+    return DEFAULT_FOOD_CATEGORIES;
+  }
+  
+  const values = unitsParam.split('-').map(val => parseInt(val, 10) / 10);
+  
+  // Validate if we have at least 4 values for normal day
+  if (values.length < 4 || values.some(isNaN)) {
+    console.warn('Invalid URL parameters format, using default configuration');
+    return DEFAULT_FOOD_CATEGORIES;
+  }
+  
+  // Create a copy of the default categories
+  const customCategories = JSON.parse(JSON.stringify(DEFAULT_FOOD_CATEGORIES));
+  
+  // Update normal day values for all categories
+  for (let i = 0; i < 4; i++) {
+    if (i < customCategories.length) {
+      customCategories[i].maxUnits.normal = values[i];
+    }
+  }
+  
+  // If sport day values are provided, update them too
+  if (values.length >= 8) {
+    for (let i = 0; i < 4; i++) {
+      if (i < customCategories.length) {
+        customCategories[i].maxUnits.sport = values[i + 4];
+      }
+    }
+  } else {
+    // Use normal day values for sport day if not explicitly provided
+    for (let i = 0; i < customCategories.length; i++) {
+      customCategories[i].maxUnits.sport = customCategories[i].maxUnits.normal;
+    }
+  }
+  
+  return customCategories;
+};
+
+// Get the final food categories with any URL parameter overrides applied
+const FOOD_CATEGORIES = parseUrlParameters();
+
 // App version
-const APP_VERSION = '1.5.1';
+const APP_VERSION = '1.6.0';
 
 // Current data schema version for migrations
 const DATA_SCHEMA_VERSION = 2;
