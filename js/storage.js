@@ -11,42 +11,7 @@ const saveToCookie = (state) => {
   }
 };
 
-// Migrate data to half units
-const migrateToHalfUnits = (data) => {
-  // Get all category IDs
-  const categoryIds = FOOD_CATEGORIES.map(cat => cat.id);
-  
-  // Update current day values
-  categoryIds.forEach(catId => {
-    if (typeof data.currentDay[catId] === 'number' && Number.isInteger(data.currentDay[catId])) {
-      data.currentDay[catId] = data.currentDay[catId] / 2;
-    }
-  });
-  
-  // Update history values
-  if (Array.isArray(data.history)) {
-    data.history.forEach(day => {
-      categoryIds.forEach(catId => {
-        if (typeof day[catId] === 'number' && Number.isInteger(day[catId])) {
-          day[catId] = day[catId] / 2;
-        }
-      });
-    });
-  }
-  
-  // Set schema version to current
-  data.currentDay.schemaVersion = DATA_SCHEMA_VERSION;
-  
-  if (Array.isArray(data.history)) {
-    data.history.forEach(day => {
-      day.schemaVersion = DATA_SCHEMA_VERSION;
-    });
-  }
-  
-  return data;
-};
-
-// Load state from cookie, with data migration handling
+// Load state from cookie
 const loadFromCookie = () => {
   try {
     const cookies = document.cookie.split(';');
@@ -56,72 +21,48 @@ const loadFromCookie = () => {
         try {
           const savedState = JSON.parse(value);
           if (savedState && typeof savedState === 'object') {
-            let needsMigration = false;
-            
-            // Format has changed - if we have history array, great
+            // Check if we have the expected data structure
             if (Array.isArray(savedState.history)) {
-              // Check if we need to migrate dayType field
-              const needsDayTypeMigration = !savedState.currentDay.hasOwnProperty('dayType');
-              
-              if (needsDayTypeMigration) {
-                // Add dayType to currentDay
-                savedState.currentDay.dayType = 'normal';
+              // Add schema version if it doesn't exist (for future migrations)
+              if (!savedState.currentDay.hasOwnProperty('schemaVersion')) {
+                savedState.currentDay.schemaVersion = DATA_SCHEMA_VERSION;
                 
-                // Add dayType to each history item
+                // Add schema version to each history item if missing
                 savedState.history = savedState.history.map(day => ({ 
                   ...day, 
-                  dayType: day.dayType || 'normal' 
+                  schemaVersion: day.schemaVersion || DATA_SCHEMA_VERSION
                 }));
                 
-                needsMigration = true;
-              }
-              
-              // Check if we need to migrate to half units
-              const needsHalfUnitMigration = 
-                !savedState.currentDay.hasOwnProperty('schemaVersion') || 
-                savedState.currentDay.schemaVersion < DATA_SCHEMA_VERSION;
-              
-              if (needsHalfUnitMigration) {
-                savedState = migrateToHalfUnits(savedState);
-                needsMigration = true;
-              }
-              
-              // Save the migrated data if needed
-              if (needsMigration) {
+                // Save the updated data
                 saveToCookie(savedState);
               }
               
               return savedState;
             }
             
-            // If we have the old format (just tracking values), migrate to new format
+            // If we have an old format (pre-history), migrate to new format
             const today = new Date().toISOString().split('T')[0];
             const validState = {
               currentDay: {
                 date: today,
-                dayType: 'normal', // Add default day type
+                dayType: 'normal',
                 schemaVersion: DATA_SCHEMA_VERSION
               },
               history: [
                 {
                   date: today,
-                  dayType: 'normal', // Add default day type
+                  dayType: 'normal',
                   schemaVersion: DATA_SCHEMA_VERSION
                 }
               ]
             };
             
-            // Migrate old values with half units
+            // Migrate old values if they exist
             for (const category of FOOD_CATEGORIES) {
               const categoryId = category.id;
-              let val = (savedState.hasOwnProperty(categoryId) && 
+              const val = (savedState.hasOwnProperty(categoryId) && 
                 typeof savedState[categoryId] === 'number' && 
                 savedState[categoryId] >= 0) ? savedState[categoryId] : 0;
-              
-              // Convert to half units if it's an integer
-              if (Number.isInteger(val)) {
-                val = val / 2;
-              }
               
               validState.currentDay[categoryId] = val;
               validState.history[0][categoryId] = val;
