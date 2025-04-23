@@ -96,7 +96,7 @@ const NutriTrack = () => {
   const incrementUnit = (categoryId, day = null) => {
     if (day) {
       // We're editing a historical day
-      updateUnitCount(categoryId, day[categoryId] + UNIT_INCREMENT, day);
+      updateUnitCount(categoryId, (day[categoryId] || 0) + UNIT_INCREMENT, day);
     } else {
       // We're updating the current day
       updateUnitCount(categoryId, unitCounts[categoryId] + UNIT_INCREMENT);
@@ -106,7 +106,7 @@ const NutriTrack = () => {
   const decrementUnit = (categoryId, day = null) => {
     if (day) {
       // We're editing a historical day
-      if (day[categoryId] >= UNIT_INCREMENT) {
+      if ((day[categoryId] || 0) >= UNIT_INCREMENT) {
         updateUnitCount(categoryId, day[categoryId] - UNIT_INCREMENT, day);
       }
     } else {
