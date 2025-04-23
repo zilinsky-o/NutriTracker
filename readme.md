@@ -115,9 +115,14 @@ MIT
 
 ## Version
 
-Current Version: 1.5.0
+Current Version: 1.5.1
 
 ## Changelog
+
+### v1.5.1
+- Fixed issues with history day editing functionality
+- Improved edit button styling and placement for better usability
+- Fixed null value handling in historical data
 
 ### v1.5.0
 - Extended history tracking from 7 to 14 days
