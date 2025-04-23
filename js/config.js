@@ -71,7 +71,7 @@ const FOOD_CATEGORIES = [
 ];
 
 // App version
-const APP_VERSION = '1.5.0';
+const APP_VERSION = '1.5.1';
 
 // Current data schema version for migrations
 const DATA_SCHEMA_VERSION = 2;
