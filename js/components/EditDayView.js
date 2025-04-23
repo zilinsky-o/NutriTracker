@@ -11,6 +11,22 @@ const EditDayView = ({
   onClick,
   onDayTypeChange
 }) => {
+  // Format date nicely for display
+  const formatDate = (dateStr) => {
+    const date = new Date(dateStr);
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    if (dateStr === today.toISOString().split('T')[0]) {
+      return 'Today';
+    } else if (dateStr === yesterday.toISOString().split('T')[0]) {
+      return 'Yesterday';
+    } else {
+      return date.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+    }
+  };
+
   return (
     <div className="flex flex-col">
       <div className="bg-indigo-50 p-3 mb-4 rounded-lg border border-indigo-100">
@@ -38,7 +54,7 @@ const EditDayView = ({
         <FoodCategory
           key={category.id}
           category={category}
-          unitCount={day[category.id]}
+          unitCount={day[category.id] || 0}
           dayType={day.dayType || 'normal'}
           activeButton={activeButton}
           onTouchStart={(id, action) => onTouchStart(id, action, day)}
