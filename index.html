@@ -15,6 +15,16 @@
   <!-- Include Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   
+  <!-- Tailwind dark mode config -->
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {}
+      }
+    }
+  </script>
+  
   <!-- Include app styles -->
   <link rel="stylesheet" href="css/styles.css">
 </head>
@@ -29,6 +39,7 @@
   <script type="text/babel" src="js/components/EditDayView.js"></script>
   <script type="text/babel" src="js/components/ResetSlider.js"></script>
   <script type="text/babel" src="js/components/DayTypeSelector.js"></script>
+  <script type="text/babel" src="js/components/DarkModeToggle.js"></script>
   <script type="text/babel" src="js/app.js"></script>
 </body>
 </html>
