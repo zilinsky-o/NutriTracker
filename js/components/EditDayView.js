@@ -29,14 +29,14 @@ const EditDayView = ({
 
   return (
     <div className="flex flex-col">
-      <div className="bg-indigo-50 p-3 mb-4 rounded-lg border border-indigo-100">
+      <div className="bg-indigo-50 dark:bg-indigo-900 p-3 mb-4 rounded-lg border border-indigo-100 dark:border-indigo-800 transition-colors">
         <div className="flex justify-between items-center">
-          <h2 className="font-medium text-indigo-800">
+          <h2 className="font-medium text-indigo-800 dark:text-indigo-200">
             Editing: {formatDate(day.date)}
           </h2>
           <button
             onClick={onCancel}
-            className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+            className="text-indigo-600 dark:text-indigo-300 hover:text-indigo-800 dark:hover:text-indigo-100 text-sm font-medium transition-colors"
           >
             Cancel
           </button>
@@ -67,7 +67,7 @@ const EditDayView = ({
       <div className="mt-4">
         <button
           onClick={onSave}
-          className="w-full py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors"
+          className="w-full py-3 bg-indigo-600 dark:bg-indigo-700 text-white rounded-lg font-medium hover:bg-indigo-700 dark:hover:bg-indigo-600 transition-colors"
         >
           Save Changes
         </button>
