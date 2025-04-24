@@ -11,6 +11,40 @@ const saveToCookie = (state) => {
   }
 };
 
+// Save dark mode preference to a cookie
+const saveDarkModeToCookie = (isDarkMode) => {
+  try {
+    const farFuture = new Date();
+    farFuture.setFullYear(farFuture.getFullYear() + 100);
+    document.cookie = `nutritrackDarkMode=${isDarkMode ? '1' : '0'};expires=${farFuture.toUTCString()};path=/;SameSite=Strict`;
+  } catch (error) {
+    console.error('Error saving dark mode preference:', error);
+  }
+};
+
+// Load dark mode preference from cookie or system preference
+const loadDarkModeFromCookie = () => {
+  try {
+    const cookies = document.cookie.split(';');
+    for (let cookie of cookies) {
+      const [name, value] = cookie.trim().split('=');
+      if (name === 'nutritrackDarkMode') {
+        return value === '1';
+      }
+    }
+    
+    // If no cookie found, check system preference
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('Error loading dark mode preference:', error);
+    return false;
+  }
+};
+
 // Load state from cookie
 const loadFromCookie = () => {
   try {
