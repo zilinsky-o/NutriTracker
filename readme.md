@@ -21,6 +21,7 @@ NutriTrack helps users maintain dietary awareness through visual unit tracking w
 - 14-day history tracking
 - Edit previous days' entries
 - Customizable food category limits via URL parameters
+- Dark mode support with system preference detection
 - Mobile-optimized responsive design
 - Color-coded feedback (blue at max, red for excess)
 - Slider-based reset functionality
@@ -43,7 +44,8 @@ nutritrack/
 │   │   ├── HistoryView.js     // History display component
 │   │   ├── EditDayView.js     // Day editing component
 │   │   ├── ResetSlider.js     // Slider reset component
-│   │   └── DayTypeSelector.js // Day type toggle component
+│   │   ├── DayTypeSelector.js // Day type toggle component
+│   │   └── DarkModeToggle.js  // Dark mode toggle component
 │   └── app.js           // Main application logic
 │
 └── README.md            // Documentation
@@ -69,6 +71,16 @@ nutritrack/
 6. View your 14-day history by clicking the "Show History" button
 7. Edit past days by clicking the pencil icon next to each day in history view
 8. Use the slider to reset today's tracking if needed
+9. Toggle dark mode using the switch below the reset slider
+
+## Dark Mode
+
+NutriTrack includes a dark mode feature for comfortable usage in low-light conditions:
+
+- The app automatically detects your system preference on first load
+- You can manually toggle between light and dark modes using the switch below the reset slider
+- Your preference is saved between sessions
+- Dark mode applies to all screens (tracking, history, editing)
 
 ## Day Types Explained
 
@@ -152,9 +164,15 @@ MIT
 
 ## Version
 
-Current Version: 1.6.1
+Current Version: 1.7.0
 
 ## Changelog
+
+### v1.7.0
+- Added dark mode support
+- Implemented automatic system preference detection
+- Added dark mode toggle switch below reset slider
+- Enhanced UI for better contrast and readability in dark mode
 
 ### v1.6.1
 - Removed share configuration button
