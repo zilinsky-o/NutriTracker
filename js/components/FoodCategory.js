@@ -160,7 +160,7 @@ const FoodCategory = ({
   const isExceeded = !isFreeMealDay && isFinite(maxUnits) && unitCount > maxUnits;
   const isMaxed = !isFreeMealDay && Math.abs(unitCount - maxUnits) < 0.01; // Close enough to max
   
-  let labelColor = 'text-gray-700';
+  let labelColor = 'text-gray-700 dark:text-gray-300';
   if (isExceeded) {
     labelColor = 'text-red-500';
   } else if (isMaxed) {
@@ -168,7 +168,7 @@ const FoodCategory = ({
   }
   
   return (
-    <div className="mb-4 bg-white rounded-lg p-3 shadow-sm border border-gray-100">
+    <div className="mb-4 bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm border border-gray-100 dark:border-gray-700 transition-colors">
       <div className="flex justify-between items-center mb-2">
         <h2 className={`text-lg font-semibold ${labelColor}`}>
           {category.name} ({formatUnitNumber(unitCount)}
@@ -182,8 +182,8 @@ const FoodCategory = ({
             disabled={unitCount <= 0}
             className={`w-12 h-12 flex items-center justify-center text-lg font-bold rounded-full focus:outline-none transition-colors duration-150 ${
               activeButton === `${category.id}-dec` 
-                ? 'bg-gray-300 text-gray-700' 
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                ? 'bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200' 
+                : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600'
             } disabled:opacity-40`}
             aria-label={`Decrease ${category.name}`}
           >
@@ -195,8 +195,8 @@ const FoodCategory = ({
             onClick={() => onClick(category.id, 'inc')}
             className={`w-12 h-12 flex items-center justify-center text-lg font-bold rounded-full focus:outline-none transition-colors duration-150 ${
               activeButton === `${category.id}-inc` 
-                ? 'bg-gray-300 text-gray-700' 
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                ? 'bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200' 
+                : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600'
             }`}
             aria-label={`Increase ${category.name}`}
           >
