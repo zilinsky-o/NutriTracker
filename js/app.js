@@ -9,9 +9,20 @@ const NutriTrack = () => {
   const [activeButton, setActiveButton] = React.useState(null);
   const [showHistory, setShowHistory] = React.useState(false);
   const [editingDay, setEditingDay] = React.useState(null);
+  const [isDarkMode, setIsDarkMode] = React.useState(loadDarkModeFromCookie());
   
   // Shorthand for current day's unit counts
   const unitCounts = appState.currentDay;
+  
+  // Apply dark mode class to document
+  React.useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    saveDarkModeToCookie(isDarkMode);
+  }, [isDarkMode]);
   
   // Check if current day needs to be reset
   React.useEffect(() => {
@@ -263,12 +274,16 @@ const NutriTrack = () => {
     setEditingDay(null);
     setShowHistory(true);
   };
+  
+  const toggleDarkMode = () => {
+    setIsDarkMode(!isDarkMode);
+  };
 
   return (
-    <div className="flex flex-col min-h-screen max-w-md mx-auto p-4 bg-white shadow-lg sm:my-4 sm:rounded-xl no-select">
+    <div className="flex flex-col min-h-screen max-w-md mx-auto p-4 bg-white dark:bg-gray-900 shadow-lg sm:my-4 sm:rounded-xl no-select transition-colors">
       <header className="mb-4 text-center">
-        <h1 className="text-2xl font-bold text-gray-800">NutriTrack</h1>
-        <p className="text-gray-600 text-sm mb-2">Track your daily food intake</p>
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">NutriTrack</h1>
+        <p className="text-gray-600 dark:text-gray-400 text-sm mb-2">Track your daily food intake</p>
         
         {/* Show different UI elements based on current mode */}
         {!editingDay && !showHistory && (
@@ -332,10 +347,16 @@ const NutriTrack = () => {
             value={sliderValue}
             onChange={handleSliderChange}
           />
+          
+          {/* Dark Mode Toggle */}
+          <DarkModeToggle 
+            isDarkMode={isDarkMode}
+            onChange={toggleDarkMode}
+          />
         </footer>
       )}
       
-      <div className="text-center text-xs text-gray-400 mt-4">
+      <div className="text-center text-xs text-gray-400 dark:text-gray-500 mt-4">
         NutriTrack v{APP_VERSION}
       </div>
     </div>
