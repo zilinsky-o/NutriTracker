@@ -118,7 +118,7 @@ const parseUrlParameters = () => {
 const FOOD_CATEGORIES = parseUrlParameters();
 
 // App version
-const APP_VERSION = '1.6.1';
+const APP_VERSION = '1.7.0';
 
 // Current data schema version for migrations
 const DATA_SCHEMA_VERSION = 2;
