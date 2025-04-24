@@ -3,8 +3,8 @@
 
 const ResetSlider = ({ value, onChange }) => {
   return (
-    <div className="bg-gray-100 p-4 rounded-lg shadow-inner">
-      <p className="text-center text-gray-600 mb-3 text-sm">Slide to reset today's tracking</p>
+    <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg shadow-inner transition-colors">
+      <p className="text-center text-gray-600 dark:text-gray-400 mb-3 text-sm">Slide to reset today's tracking</p>
       <div className="relative">
         <input
           type="range"
@@ -18,7 +18,7 @@ const ResetSlider = ({ value, onChange }) => {
           }}
         />
         <div 
-          className="absolute top-0 left-0 h-8 rounded-full pointer-events-none"
+          className="absolute top-0 left-0 h-8 rounded-full pointer-events-none transition-all"
           style={{
             width: `${value}%`,
             background: value > 95 ? '#4F46E5' : '#9CA3AF',
@@ -26,7 +26,7 @@ const ResetSlider = ({ value, onChange }) => {
           }}
         />
       </div>
-      <p className="text-center text-xs text-gray-500 mt-2">
+      <p className="text-center text-xs text-gray-500 dark:text-gray-400 mt-2">
         {value > 95 ? 'Release to reset' : 'Slide all the way to reset'}
       </p>
     </div>
