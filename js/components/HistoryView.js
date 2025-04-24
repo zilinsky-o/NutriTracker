@@ -47,14 +47,14 @@ const HistoryView = ({ history, onEditDay }) => {
   return (
     <div className="space-y-4">
       {history.map((day, index) => (
-        <div key={day.date} className="bg-white rounded-lg p-3 shadow-sm border border-gray-100">
+        <div key={day.date} className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm border border-gray-100 dark:border-gray-700 transition-colors">
           <div className="flex justify-between items-center mb-2">
             <div className="flex items-center">
-              <h3 className="font-medium text-gray-800 mr-2">
+              <h3 className="font-medium text-gray-800 dark:text-gray-200 mr-2">
                 {formatDate(day.date)}
               </h3>
               <div 
-                className="w-8 h-8 flex items-center justify-center bg-gray-100 rounded-full text-lg"
+                className="w-8 h-8 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded-full text-lg"
                 title={getDayTypeName(day.dayType || 'normal')}
               >
                 <span role="img" aria-label={getDayTypeName(day.dayType || 'normal')}>
@@ -64,11 +64,11 @@ const HistoryView = ({ history, onEditDay }) => {
             </div>
             <button
               onClick={() => onEditDay(day)}
-              className="w-8 h-8 flex items-center justify-center bg-indigo-100 hover:bg-indigo-200 rounded-full transition-colors"
+              className="w-8 h-8 flex items-center justify-center bg-indigo-100 dark:bg-indigo-900 hover:bg-indigo-200 dark:hover:bg-indigo-800 rounded-full transition-colors"
               title="Edit day"
               aria-label="Edit day"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-indigo-600 dark:text-indigo-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
               </svg>
             </button>
@@ -82,7 +82,7 @@ const HistoryView = ({ history, onEditDay }) => {
               
               return (
                 <div key={`${day.date}-${category.id}`} className="flex items-center">
-                  <div className="w-24 text-sm text-gray-600">{category.name}</div>
+                  <div className="w-24 text-sm text-gray-600 dark:text-gray-400">{category.name}</div>
                   <div className="flex-grow flex flex-wrap">
                     {renderHalfCircles(category.id, category, day)}
                   </div>
@@ -97,7 +97,7 @@ const HistoryView = ({ history, onEditDay }) => {
       ))}
       
       {history.length === 0 && (
-        <div className="text-center text-gray-500 py-6">
+        <div className="text-center text-gray-500 dark:text-gray-400 py-6">
           No history data available yet
         </div>
       )}
