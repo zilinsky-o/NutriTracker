@@ -9,7 +9,7 @@
   <script>
     window.addEventListener('error', function(e) {
       console.error('Global error caught:', e.error);
-      document.body.innerHTML = '<div style="color:red; padding:20px;">Error: ' + (e.error ? e.error.message : 'Unknown error') + '</div>';
+      document.body.innerHTML = '<div style="color:red; padding:20px;">Error: ' + e.error.message + '</div>';
     });
   </script>
   
@@ -42,8 +42,10 @@
   <!-- Include app scripts in the correct order -->
   <script type="text/babel" src="js/config.js"></script>
   <script type="text/babel" src="js/storage.js"></script>
-  <script type="text/babel" src="js/weeklyBalance.js"></script>
-  <script type="text/babel" src="js/components/WeeklyBalanceIndicator.js"></script>
+  
+  <!-- Weekly balance functionality will be included directly in app.js -->
+  <!-- No need for weeklyBalance.js or WeeklyBalanceIndicator.js as separate files -->
+  
   <script type="text/babel" src="js/components/FoodCategory.js"></script>
   <script type="text/babel" src="js/components/HistoryView.js"></script>
   <script type="text/babel" src="js/components/EditDayView.js"></script>
