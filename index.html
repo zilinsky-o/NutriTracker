@@ -9,7 +9,7 @@
   <script>
     window.addEventListener('error', function(e) {
       console.error('Global error caught:', e.error);
-      document.body.innerHTML = '<div style="color:red; padding:20px;">Error: ' + e.error.message + '</div>';
+      document.body.innerHTML = '<div style="color:red; padding:20px;">Error: ' + (e.error ? e.error.message : 'Unknown error') + '</div>';
     });
   </script>
   
