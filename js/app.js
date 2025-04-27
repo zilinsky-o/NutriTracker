@@ -1,7 +1,7 @@
 // Main application component
 console.log('NutriTrack script starting...');
 
-// Define constants for weekly balance status (normally in WeeklyBalanceIndicator.js)
+// Define constants for weekly balance status
 const WEEKLY_BALANCE_STATUS = {
   EXCESS: 'excess',
   UNDER: 'under',
@@ -11,7 +11,14 @@ const WEEKLY_BALANCE_STATUS = {
 // Threshold for determining if consumption is "on track" (±0.5 units)
 const BALANCE_THRESHOLD = 0.5;
 
-// Weekly Balance utility functions (normally in weeklyBalance.js)
+// Constants for long press feature
+const UNIT_FINE_INCREMENT = 0.25; // Smaller increment for long press
+const LONG_PRESS_DURATION = 500; // Duration in ms to detect a long press
+
+// Update version number for new features and bug fixes
+const APP_VERSION = '1.9.0';
+
+// Weekly Balance utility functions
 // Helper function to get the start date (Sunday) of the week containing the given date
 const getWeekStartDate = (dateStr) => {
   const date = new Date(dateStr);
@@ -322,7 +329,7 @@ const WeeklyBalanceIndicator = ({ category, balance }) => {
     }
   };
   
-// Format the difference value for display
+  // Format the difference value for display
   const formatDifference = (diff) => {
     // Always show the value, even if it's 0 or within threshold
     const rounded = Math.round(diff * 2) / 2;
@@ -388,6 +395,10 @@ const NutriTrack = () => {
   const [isDarkMode, setIsDarkMode] = React.useState(loadDarkModeFromCookie());
   const [weeklyBalance, setWeeklyBalance] = React.useState(null);
   
+  // New state for long press functionality
+  const [longPressTimer, setLongPressTimer] = React.useState(null);
+  const [isLongPress, setIsLongPress] = React.useState(false);
+  
   // Shorthand for current day's unit counts
   const unitCounts = appState.currentDay;
   
@@ -452,8 +463,10 @@ const NutriTrack = () => {
   const updateUnitCount = (categoryId, newValue, day = null) => {
     if (newValue < 0) return;
     
-    // Round to nearest half unit to avoid floating point issues
-    newValue = Math.round(newValue * 2) / 2;
+    // For fine increments (0.25), we round to nearest quarter unit
+    // For regular increments (0.5), we round to nearest half unit
+    const roundingFactor = isLongPress ? 4 : 2; // 4 for quarter units, 2 for half units
+    newValue = Math.round(newValue * roundingFactor) / roundingFactor;
     
     if (day) {
       // We're editing a specific history day
@@ -494,25 +507,29 @@ const NutriTrack = () => {
   };
   
   const incrementUnit = (categoryId, day = null) => {
+    const increment = isLongPress ? UNIT_FINE_INCREMENT : UNIT_INCREMENT;
+    
     if (day) {
       // We're editing a historical day
-      updateUnitCount(categoryId, (day[categoryId] || 0) + UNIT_INCREMENT, day);
+      updateUnitCount(categoryId, (day[categoryId] || 0) + increment, day);
     } else {
       // We're updating the current day
-      updateUnitCount(categoryId, unitCounts[categoryId] + UNIT_INCREMENT);
+      updateUnitCount(categoryId, unitCounts[categoryId] + increment);
     }
   };
 
   const decrementUnit = (categoryId, day = null) => {
+    const increment = isLongPress ? UNIT_FINE_INCREMENT : UNIT_INCREMENT;
+    
     if (day) {
       // We're editing a historical day
-      if ((day[categoryId] || 0) >= UNIT_INCREMENT) {
-        updateUnitCount(categoryId, day[categoryId] - UNIT_INCREMENT, day);
+      if ((day[categoryId] || 0) >= increment) {
+        updateUnitCount(categoryId, day[categoryId] - increment, day);
       }
     } else {
       // We're updating the current day
-      if (unitCounts[categoryId] >= UNIT_INCREMENT) {
-        updateUnitCount(categoryId, unitCounts[categoryId] - UNIT_INCREMENT);
+      if (unitCounts[categoryId] >= increment) {
+        updateUnitCount(categoryId, unitCounts[categoryId] - increment);
       }
     }
   };
@@ -589,7 +606,29 @@ const NutriTrack = () => {
   
   const handleTouchStart = (id, action, day = null) => {
     setActiveButton(`${id}-${action}`);
+    setIsLongPress(false);
     
+    // Clear any existing timer
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+    }
+    
+    // Set a timer to detect long press
+    const timer = setTimeout(() => {
+      console.log('Long press detected');
+      setIsLongPress(true);
+      
+      // Perform action with fine increment
+      if (action === 'inc') {
+        incrementUnit(id, day);
+      } else if (action === 'dec') {
+        decrementUnit(id, day);
+      }
+    }, LONG_PRESS_DURATION);
+    
+    setLongPressTimer(timer);
+    
+    // Perform initial action with regular increment
     if (action === 'inc') {
       incrementUnit(id, day);
     } else if (action === 'dec') {
@@ -599,10 +638,22 @@ const NutriTrack = () => {
   
   const handleTouchEnd = () => {
     setActiveButton(null);
+    
+    // Clear the long press timer
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+    }
+    
+    // Reset long press state
+    setIsLongPress(false);
   };
   
+  // For mouse clicks - only handle standard increments (non-long press)
   const handleButtonClick = (id, action, day = null) => {
     if (isTouchActive) return;
+    
+    setIsLongPress(false);
     
     if (action === 'inc') {
       incrementUnit(id, day);
@@ -714,7 +765,9 @@ const NutriTrack = () => {
               disabled={unitCount <= 0}
               className={`w-12 h-12 flex items-center justify-center text-lg font-bold rounded-full focus:outline-none transition-colors duration-150 ${
                 activeButton === `${category.id}-dec` 
-                  ? 'bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200' 
+                  ? (isLongPress 
+                      ? 'bg-indigo-400 dark:bg-indigo-600 text-white' // Long press style
+                      : 'bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200') // Regular press style
                   : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600'
               } disabled:opacity-40`}
               aria-label={`Decrease ${category.name}`}
@@ -727,7 +780,9 @@ const NutriTrack = () => {
               onClick={() => onClick(category.id, 'inc')}
               className={`w-12 h-12 flex items-center justify-center text-lg font-bold rounded-full focus:outline-none transition-colors duration-150 ${
                 activeButton === `${category.id}-inc` 
-                  ? 'bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200' 
+                  ? (isLongPress 
+                      ? 'bg-indigo-400 dark:bg-indigo-600 text-white' // Long press style
+                      : 'bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200') // Regular press style 
                   : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600'
               }`}
               aria-label={`Increase ${category.name}`}
