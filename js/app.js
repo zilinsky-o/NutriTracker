@@ -71,9 +71,9 @@ const calculateWeeklyBalance = (history, today = new Date().toISOString().split(
   
   console.log(`Calculating weekly balance: ${weekStart} to ${weekEnd}`);
   
-  // Filter history to only include days in current week that are not in the future
+  // Filter history to only include days in current week BEFORE today
   const weekHistory = history.filter(day => {
-    return day.date >= weekStart && day.date <= weekEnd && day.date <= today;
+    return day.date >= weekStart && day.date <= weekEnd && day.date < today;
   });
   
   // Initialize results
@@ -82,7 +82,7 @@ const calculateWeeklyBalance = (history, today = new Date().toISOString().split(
     categories: {}
   };
   
-  // If no history for this week, return empty results
+  // If no history for this week before today, return empty results
   if (weekHistory.length === 0) {
     return results;
   }
@@ -112,12 +112,15 @@ const calculateWeeklyBalance = (history, today = new Date().toISOString().split(
     // Calculate the difference (negative means under, positive means over)
     const difference = actualConsumption - plannedConsumption;
     
-    // Store results
-    results.categories[categoryId] = {
-      actual: actualConsumption,
-      planned: plannedConsumption,
-      difference: difference
-    };
+    // Only store results if there's a meaningful difference
+    // (only non-zero differences will be stored)
+    if (Math.abs(difference) > 0.01) {
+      results.categories[categoryId] = {
+        actual: actualConsumption,
+        planned: plannedConsumption,
+        difference: difference
+      };
+    }
   });
   
   return results;
@@ -274,7 +277,7 @@ const WeeklyBalanceIndicator = ({ category, balance }) => {
   
   // Determine status based on balance
   const getStatus = (diff) => {
-    if (Math.abs(diff) < 0.01) { // Only consider exact 0 as on-track
+    if (Math.abs(diff) < 0.01) { // Only consider exact 0 as on-track (shouldn't happen with our updated logic)
       return WEEKLY_BALANCE_STATUS.ON_TRACK;
     }
     return diff > 0 ? WEEKLY_BALANCE_STATUS.EXCESS : WEEKLY_BALANCE_STATUS.UNDER;
@@ -322,9 +325,9 @@ const WeeklyBalanceIndicator = ({ category, balance }) => {
     }
   };
   
-// Format the difference value for display
+  // Format the difference value for display
   const formatDifference = (diff) => {
-    // Always show the value, even if it's 0 or within threshold
+    // Round to nearest 0.5 to match the app's unit increment
     const rounded = Math.round(diff * 2) / 2;
     return rounded > 0 ? `+${rounded.toFixed(1)}` : rounded.toFixed(1);
   };
@@ -333,9 +336,9 @@ const WeeklyBalanceIndicator = ({ category, balance }) => {
   const getTooltipText = (statusType, diff, categoryName) => {
     switch(statusType) {
       case WEEKLY_BALANCE_STATUS.EXCESS:
-        return `You're ${Math.abs(diff).toFixed(1)} units over on ${categoryName.toLowerCase()} this week. Consider reducing intake.`;
+        return `You're ${Math.abs(diff).toFixed(1)} units over on ${categoryName.toLowerCase()} this week (not counting today). Consider adjusting today's intake.`;
       case WEEKLY_BALANCE_STATUS.UNDER:
-        return `You're ${Math.abs(diff).toFixed(1)} units under on ${categoryName.toLowerCase()} this week. Try to increase intake.`;
+        return `You're ${Math.abs(diff).toFixed(1)} units under on ${categoryName.toLowerCase()} this week (not counting today). Consider this when planning today's meals.`;
       case WEEKLY_BALANCE_STATUS.ON_TRACK:
         return `You're on track with ${categoryName.toLowerCase()} this week. Keep it up!`;
       default:
@@ -693,7 +696,7 @@ const NutriTrack = () => {
       labelColor = 'text-blue-500';
     }
     
-    // Get weekly balance for this category
+    // Get weekly balance for this category (only if there's a difference)
     const categoryBalance = weeklyBalance?.categories?.[category.id]?.difference || null;
     
     return (
@@ -743,7 +746,7 @@ const NutriTrack = () => {
             {renderHalfCircles(category.id, category, { [category.id]: unitCount, dayType })}
           </div>
           
-          {/* Show weekly balance indicator if data is available */}
+          {/* Only show weekly balance indicator if there's a meaningful difference */}
           {weeklyBalance && categoryBalance !== null && (
             <WeeklyBalanceIndicator 
               category={category} 
