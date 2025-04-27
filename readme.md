@@ -168,6 +168,35 @@ Current Version: 1.7.0
 
 ## Changelog
 
+### v1.8.3
+
+- Modified weekly balance tracking to exclude the current day from calculations
+- Enhanced weekly balance indicators to only show meaningful surpluses or deficits
+- Updated tooltips to clarify that calculations exclude today's consumption
+- Optimized weekly balance logic for better performance and accuracy
+- Fixed bug in date range calculation for weekly summary
+
+### v1.8.2
+
+- Added weekly balance tracking for all food categories
+- Implemented visual indicators showing over/under consumption for the week
+- Added tooltips with detailed information about weekly consumption patterns
+- Improved UI for better clarity on consumption tracking
+
+### v1.8.1
+
+- Fixed issues with dark mode compatibility
+- Enhanced accessibility for screen readers
+- Improved touch controls for mobile devices
+- Fixed minor visual glitches in history view
+
+### v1.8.0
+- Added weekly summary view with consumption trends
+- Enhanced data visualization for day types
+- Improved history editing capabilities
+- Added support for importing/exporting user data
+- Fixed several UI/UX issues for better usability
+
 ### v1.7.0
 - Added dark mode support
 - Implemented automatic system preference detection
