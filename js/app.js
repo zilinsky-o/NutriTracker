@@ -16,7 +16,7 @@ const UNIT_FINE_INCREMENT = 0.25; // Smaller increment for long press
 const LONG_PRESS_DURATION = 500; // Duration in ms to detect a long press
 
 // Update version number for new features and bug fixes
-const APP_VERSION = '1.9.0';
+const APP_VERSION = '1.9.1';
 
 // Weekly Balance utility functions
 // Helper function to get the start date (Sunday) of the week containing the given date
@@ -130,18 +130,28 @@ const calculateWeeklyBalance = (history, today = new Date().toISOString().split(
   return results;
 };
 
-// Format unit number for display (copied from FoodCategory.js)
+// Improved format unit number for display to correctly show quarter units
 const formatUnitNumber = (value) => {
   // If it's a whole number, don't show the decimal
   if (value === Math.floor(value)) {
     return value.toString();
   }
   
-  // Otherwise, show with 1 decimal place
+  // Format quarter units correctly
+  const fractionalPart = value % 1;
+  if (Math.abs(fractionalPart - 0.25) < 0.01) {
+    return Math.floor(value) + ".25";
+  } else if (Math.abs(fractionalPart - 0.5) < 0.01) {
+    return Math.floor(value) + ".5";
+  } else if (Math.abs(fractionalPart - 0.75) < 0.01) {
+    return Math.floor(value) + ".75";
+  }
+  
+  // Fallback to one decimal place
   return value.toFixed(1);
 };
 
-// Render half circles for a food category (copied from FoodCategory.js)
+// Render half circles for a food category (improved to show quarter units)
 const renderHalfCircles = (categoryId, category, dayData) => {
   const currentUnits = dayData[categoryId] || 0;
   const dayType = dayData.dayType || 'normal';
@@ -164,112 +174,116 @@ const renderHalfCircles = (categoryId, category, dayData) => {
     ? Math.max(category.maxUnits.normal, Math.ceil(currentUnits))
     : maxUnits;
   
-  // Each full unit is represented by 2 half-circles
-  const totalHalfCircles = displayMax * 2;
-  const fullHalfCircles = fullUnits * 2;
+  // Each full unit is represented by 4 quarter-circles (instead of 2 half-circles)
+  const totalQuarterCircles = displayMax * 4;
+  const fullQuarterCircles = Math.round(fullUnits * 4);  // Round to handle potential floating point issues
   
-  // Handle half units by calculating how many full and half circles to show
-  const fullCirclesToShow = Math.floor(fullHalfCircles / 2);
-  const hasHalfCircle = fullHalfCircles % 2 === 1;
+  // Create an array to hold all quarter circles
+  const units = [];
   
-  // Create empty containers for all possible half circles
-  const units = Array.from({ length: totalHalfCircles }, (_, index) => {
-    const isLeft = index % 2 === 0;
-    const pairIndex = Math.floor(index / 2);
+  // Generate the circles
+  for (let i = 0; i < totalQuarterCircles; i += 4) {
+    // Each set of 4 quarters represents one full unit
+    const unitIndex = i / 4;
+    const remainingQuarters = Math.max(0, Math.min(4, fullQuarterCircles - i));
     
-    // Determine if this half-circle should be filled
-    let isFilled;
-    if (fullCirclesToShow > pairIndex) {
-      // Both halves of this circle are filled
-      isFilled = true;
-    } else if (fullCirclesToShow === pairIndex && hasHalfCircle && isLeft) {
-      // Only the left half of this circle is filled (for half units)
-      isFilled = true;
-    } else {
-      // This half-circle is not filled
-      isFilled = false;
-    }
-    
-    return (
-      <div 
-        key={`half-${index}`} 
-        className={`w-5 h-5 ${isLeft ? 'rounded-l-full' : 'rounded-r-full'}`}
-        style={{ 
-          backgroundColor: isFilled ? category.color : category.bgColor,
-          margin: '0 0px'
-        }}
-      />
+    // Container for this unit
+    const unitContainer = (
+      <div key={`unit-${unitIndex}`} className="flex items-center mx-1 my-1">
+        <div className="relative w-10 h-10 rounded-full">
+          {/* Base circle (outline) */}
+          <div className="absolute inset-0 rounded-full border-2 border-gray-200 dark:border-gray-700"></div>
+          
+          {/* First quarter (0-25%) */}
+          {remainingQuarters >= 1 && (
+            <div className="absolute top-0 left-0 w-1/2 h-1/2 overflow-hidden">
+              <div className="absolute top-0 left-0 w-10 h-10 rounded-full" style={{ backgroundColor: category.color }}></div>
+            </div>
+          )}
+          
+          {/* Second quarter (25-50%) */}
+          {remainingQuarters >= 2 && (
+            <div className="absolute top-0 right-0 w-1/2 h-1/2 overflow-hidden">
+              <div className="absolute top-0 right-0 w-10 h-10 rounded-full" style={{ backgroundColor: category.color }}></div>
+            </div>
+          )}
+          
+          {/* Third quarter (50-75%) */}
+          {remainingQuarters >= 3 && (
+            <div className="absolute bottom-0 right-0 w-1/2 h-1/2 overflow-hidden">
+              <div className="absolute bottom-0 right-0 w-10 h-10 rounded-full" style={{ backgroundColor: category.color }}></div>
+            </div>
+          )}
+          
+          {/* Fourth quarter (75-100%) */}
+          {remainingQuarters >= 4 && (
+            <div className="absolute bottom-0 left-0 w-1/2 h-1/2 overflow-hidden">
+              <div className="absolute bottom-0 left-0 w-10 h-10 rounded-full" style={{ backgroundColor: category.color }}></div>
+            </div>
+          )}
+        </div>
+      </div>
     );
-  });
-  
-  // Handle excess units the same way
-  const excessHalfCircles = excessUnits * 2;
-  const excessFullCircles = Math.floor(excessHalfCircles / 2);
-  const hasExcessHalf = excessHalfCircles % 2 === 1;
-  
-  const excess = !isFreeMealDay ? Array.from({ length: excessHalfCircles }, (_, index) => {
-    const isLeft = index % 2 === 0;
-    const pairIndex = Math.floor(index / 2);
     
-    let isExcessFilled = false;
-    if (excessFullCircles > pairIndex) {
-      isExcessFilled = true;
-    } else if (excessFullCircles === pairIndex && hasExcessHalf && isLeft) {
-      isExcessFilled = true;
-    }
+    units.push(unitContainer);
     
-    return (
-      <div 
-        key={`excess-half-${index}`} 
-        className={`w-5 h-5 ${isLeft ? 'rounded-l-full' : 'rounded-r-full'}`}
-        style={{ 
-          backgroundColor: isExcessFilled ? '#FF3B30' : category.bgColor,
-          margin: '0 0px'
-        }}
-      />
-    );
-  }) : [];
+    // Break if we've reached the display max
+    if (unitIndex >= displayMax - 1) break;
+  }
   
-  // Group the half-circles into pairs for better visual display
-  const pairedUnits = [];
-  for (let i = 0; i < units.length; i += 2) {
-    if (i + 1 < units.length) {
-      pairedUnits.push(
-        <div key={`pair-${i}`} className="flex" style={{ margin: '0 1px' }}>
-          {units[i]}
-          {units[i + 1]}
+  // Handle excess units similarly
+  const excessQuarterCircles = Math.round(excessUnits * 4);
+  const excess = [];
+  
+  if (!isFreeMealDay && excessQuarterCircles > 0) {
+    for (let i = 0; i < excessQuarterCircles; i += 4) {
+      // Each set of 4 quarters represents one full unit
+      const unitIndex = i / 4;
+      const remainingQuarters = Math.max(0, Math.min(4, excessQuarterCircles - i));
+      
+      // Container for this excess unit
+      const excessContainer = (
+        <div key={`excess-${unitIndex}`} className="flex items-center mx-1 my-1">
+          <div className="relative w-10 h-10 rounded-full">
+            {/* Base circle (outline) */}
+            <div className="absolute inset-0 rounded-full border-2 border-gray-200 dark:border-gray-700"></div>
+            
+            {/* First quarter (0-25%) */}
+            {remainingQuarters >= 1 && (
+              <div className="absolute top-0 left-0 w-1/2 h-1/2 overflow-hidden">
+                <div className="absolute top-0 left-0 w-10 h-10 rounded-full" style={{ backgroundColor: '#FF3B30' }}></div>
+              </div>
+            )}
+            
+            {/* Second quarter (25-50%) */}
+            {remainingQuarters >= 2 && (
+              <div className="absolute top-0 right-0 w-1/2 h-1/2 overflow-hidden">
+                <div className="absolute top-0 right-0 w-10 h-10 rounded-full" style={{ backgroundColor: '#FF3B30' }}></div>
+              </div>
+            )}
+            
+            {/* Third quarter (50-75%) */}
+            {remainingQuarters >= 3 && (
+              <div className="absolute bottom-0 right-0 w-1/2 h-1/2 overflow-hidden">
+                <div className="absolute bottom-0 right-0 w-10 h-10 rounded-full" style={{ backgroundColor: '#FF3B30' }}></div>
+              </div>
+            )}
+            
+            {/* Fourth quarter (75-100%) */}
+            {remainingQuarters >= 4 && (
+              <div className="absolute bottom-0 left-0 w-1/2 h-1/2 overflow-hidden">
+                <div className="absolute bottom-0 left-0 w-10 h-10 rounded-full" style={{ backgroundColor: '#FF3B30' }}></div>
+              </div>
+            )}
+          </div>
         </div>
       );
-    } else {
-      // Just in case there's an odd number
-      pairedUnits.push(
-        <div key={`pair-${i}`} className="flex" style={{ margin: '0 1px' }}>
-          {units[i]}
-        </div>
-      );
+      
+      excess.push(excessContainer);
     }
   }
   
-  // Group excess half-circles the same way
-  const pairedExcess = [];
-  for (let i = 0; i < excess.length; i += 2) {
-    if (i + 1 < excess.length) {
-      pairedExcess.push(
-        <div key={`excess-pair-${i}`} className="flex" style={{ margin: '0 1px' }}>
-          {excess[i]}
-          {excess[i + 1]}
-        </div>
-      );
-    } else {
-      pairedExcess.push(
-        <div key={`excess-pair-${i}`} className="flex" style={{ margin: '0 1px' }}>
-          {excess[i]}
-        </div>
-      );
-    }
-  }
-  
-  return [...pairedUnits, ...pairedExcess];
+  return [...units, ...excess];
 };
 
 // The Weekly Balance Indicator component
@@ -329,20 +343,42 @@ const WeeklyBalanceIndicator = ({ category, balance }) => {
     }
   };
   
-  // Format the difference value for display
+  // Format the difference value for display with proper quarter unit formatting
   const formatDifference = (diff) => {
-    // Always show the value, even if it's 0 or within threshold
-    const rounded = Math.round(diff * 2) / 2;
-    return rounded > 0 ? `+${rounded.toFixed(1)}` : rounded.toFixed(1);
+    // Round to nearest quarter unit
+    const rounded = Math.round(diff * 4) / 4;
+    
+    // Format with proper decimal display
+    if (rounded === Math.floor(rounded)) {
+      // Whole number
+      return rounded > 0 ? `+${rounded}` : `${rounded}`;
+    } else {
+      // Quarter, half, or three-quarter units
+      const fractionalPart = Math.abs(rounded) % 1;
+      const integerPart = Math.floor(Math.abs(rounded));
+      let formattedValue;
+      
+      if (Math.abs(fractionalPart - 0.25) < 0.01) {
+        formattedValue = `${integerPart}.25`;
+      } else if (Math.abs(fractionalPart - 0.5) < 0.01) {
+        formattedValue = `${integerPart}.5`;
+      } else if (Math.abs(fractionalPart - 0.75) < 0.01) {
+        formattedValue = `${integerPart}.75`;
+      } else {
+        formattedValue = Math.abs(rounded).toFixed(2);
+      }
+      
+      return rounded > 0 ? `+${formattedValue}` : `-${formattedValue}`;
+    }
   };
   
   // Get tooltip text based on status
   const getTooltipText = (statusType, diff, categoryName) => {
     switch(statusType) {
       case WEEKLY_BALANCE_STATUS.EXCESS:
-        return `You're ${Math.abs(diff).toFixed(1)} units over on ${categoryName.toLowerCase()} this week. Consider reducing intake.`;
+        return `You're ${Math.abs(diff).toFixed(2)} units over on ${categoryName.toLowerCase()} this week. Consider reducing intake.`;
       case WEEKLY_BALANCE_STATUS.UNDER:
-        return `You're ${Math.abs(diff).toFixed(1)} units under on ${categoryName.toLowerCase()} this week. Try to increase intake.`;
+        return `You're ${Math.abs(diff).toFixed(2)} units under on ${categoryName.toLowerCase()} this week. Try to increase intake.`;
       case WEEKLY_BALANCE_STATUS.ON_TRACK:
         return `You're on track with ${categoryName.toLowerCase()} this week. Keep it up!`;
       default:
@@ -604,9 +640,9 @@ const NutriTrack = () => {
     }
   };
   
+  // Touch handlers for mobile devices
   const handleTouchStart = (id, action, day = null) => {
     setActiveButton(`${id}-${action}`);
-    setIsLongPress(false);
     
     // Clear any existing timer
     if (longPressTimer) {
@@ -637,7 +673,10 @@ const NutriTrack = () => {
   };
   
   const handleTouchEnd = () => {
-    setActiveButton(null);
+    // Only clear the button highlight after a short delay to avoid flickering
+    setTimeout(() => {
+      setActiveButton(null);
+    }, 50);
     
     // Clear the long press timer
     if (longPressTimer) {
@@ -649,17 +688,61 @@ const NutriTrack = () => {
     setIsLongPress(false);
   };
   
-  // For mouse clicks - only handle standard increments (non-long press)
-  const handleButtonClick = (id, action, day = null) => {
-    if (isTouchActive) return;
+  // Mouse event handlers for desktop
+  const handleMouseDown = (id, action, day = null) => {
+    if (isTouchActive) return; // Skip for touch devices
     
-    setIsLongPress(false);
+    setActiveButton(`${id}-${action}`);
     
+    // Clear any existing timer
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+    }
+    
+    // Set a timer to detect long press
+    const timer = setTimeout(() => {
+      console.log('Long mouse press detected');
+      setIsLongPress(true);
+      
+      // Perform action with fine increment
+      if (action === 'inc') {
+        incrementUnit(id, day);
+      } else if (action === 'dec') {
+        decrementUnit(id, day);
+      }
+    }, LONG_PRESS_DURATION);
+    
+    setLongPressTimer(timer);
+    
+    // Perform initial action with regular increment
     if (action === 'inc') {
       incrementUnit(id, day);
     } else if (action === 'dec') {
       decrementUnit(id, day);
     }
+  };
+  
+  const handleMouseUp = () => {
+    if (isTouchActive) return; // Skip for touch devices
+    
+    // Only clear the button highlight after a short delay to avoid flickering
+    setTimeout(() => {
+      setActiveButton(null);
+    }, 50);
+    
+    // Clear the long press timer
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+    }
+    
+    // Reset long press state
+    setIsLongPress(false);
+  };
+  
+  // Only for regular clicks (no long press support)
+  const handleClick = (id, action, day = null) => {
+    // This is now handled by mouseDown/mouseUp for both regular and long press
   };
 
   const toggleHistory = () => {
@@ -719,14 +802,16 @@ const NutriTrack = () => {
     setIsDarkMode(!isDarkMode);
   };
 
-  // Modified FoodCategory for weekly balance
+  // Enhanced FoodCategory with quarter unit support
   const EnhancedFoodCategory = ({ 
     category, 
     unitCount, 
     dayType,
     activeButton, 
     onTouchStart, 
-    onTouchEnd, 
+    onTouchEnd,
+    onMouseDown,
+    onMouseUp,
     onClick,
     weeklyBalance = null
   }) => {
@@ -761,7 +846,9 @@ const NutriTrack = () => {
             <button 
               onTouchStart={() => onTouchStart(category.id, 'dec')}
               onTouchEnd={onTouchEnd}
-              onClick={() => onClick(category.id, 'dec')}
+              onMouseDown={() => onMouseDown(category.id, 'dec')}
+              onMouseUp={onMouseUp}
+              onMouseLeave={onMouseUp}
               disabled={unitCount <= 0}
               className={`w-12 h-12 flex items-center justify-center text-lg font-bold rounded-full focus:outline-none transition-colors duration-150 ${
                 activeButton === `${category.id}-dec` 
@@ -777,7 +864,9 @@ const NutriTrack = () => {
             <button 
               onTouchStart={() => onTouchStart(category.id, 'inc')}
               onTouchEnd={onTouchEnd}
-              onClick={() => onClick(category.id, 'inc')}
+              onMouseDown={() => onMouseDown(category.id, 'inc')}
+              onMouseUp={onMouseUp}
+              onMouseLeave={onMouseUp}
               className={`w-12 h-12 flex items-center justify-center text-lg font-bold rounded-full focus:outline-none transition-colors duration-150 ${
                 activeButton === `${category.id}-inc` 
                   ? (isLongPress 
@@ -792,9 +881,9 @@ const NutriTrack = () => {
           </div>
         </div>
         
-        {/* BODY - half circles and weekly balance indicator */}
+        {/* BODY - quarter-circle units and weekly balance indicator */}
         <div className="flex justify-between items-center">
-          <div className="flex flex-wrap py-2 hide-scrollbar">
+          <div className="flex flex-wrap overflow-x-auto py-2 hide-scrollbar">
             {renderHalfCircles(category.id, category, { [category.id]: unitCount, dayType })}
           </div>
           
@@ -853,7 +942,7 @@ const NutriTrack = () => {
             activeButton={activeButton}
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
-            onClick={handleButtonClick}
+            onClick={handleClick}
             onDayTypeChange={(newType) => handleDayTypeChange(newType, editingDay)}
           />
         ) : showHistory ? (
@@ -873,7 +962,9 @@ const NutriTrack = () => {
               activeButton={activeButton}
               onTouchStart={(id, action) => handleTouchStart(id, action)}
               onTouchEnd={handleTouchEnd}
-              onClick={(id, action) => handleButtonClick(id, action)}
+              onMouseDown={(id, action) => handleMouseDown(id, action)}
+              onMouseUp={handleMouseUp}
+              onClick={(id, action) => handleClick(id, action)}
               weeklyBalance={weeklyBalance} // Pass weekly balance data
             />
           ))
