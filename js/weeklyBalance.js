@@ -1,4 +1,5 @@
-// Weekly Balance utility functions
+// Add this to js/weeklyBalance.js
+// Utility functions for calculating weekly balance
 
 // Helper function to get the start date (Sunday) of the week containing the given date
 const getWeekStartDate = (dateStr) => {
@@ -56,8 +57,6 @@ const calculateWeeklyBalance = (history, today = new Date().toISOString().split(
   // Get current week's start and end dates
   const weekStart = getWeekStartDate(today);
   const weekEnd = getWeekEndDate(today);
-  
-  console.log(`Calculating weekly balance: ${weekStart} to ${weekEnd}`);
   
   // Filter history to only include days in current week that are not in the future
   const weekHistory = history.filter(day => {
