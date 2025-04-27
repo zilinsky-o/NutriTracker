@@ -1,4 +1,4 @@
-// Weekly Balance Indicator Component
+// Add this to js/components/WeeklyBalanceIndicator.js
 
 // Define constants for weekly balance status
 const WEEKLY_BALANCE_STATUS = {
@@ -7,10 +7,10 @@ const WEEKLY_BALANCE_STATUS = {
   ON_TRACK: 'on-track'
 };
 
-// Threshold for determining if consumption is "on track"
-const BALANCE_THRESHOLD = 0.01;
+// Threshold for determining if consumption is "on track" (±0.5 units)
+const BALANCE_THRESHOLD = 0.5;
 
-// The Weekly Balance Indicator component
+// Weekly Balance Indicator component
 const WeeklyBalanceIndicator = ({ category, balance }) => {
   // Skip rendering if balance is null/undefined (not enough data)
   if (balance === null || balance === undefined) {
@@ -19,7 +19,7 @@ const WeeklyBalanceIndicator = ({ category, balance }) => {
   
   // Determine status based on balance
   const getStatus = (diff) => {
-    if (Math.abs(diff) < BALANCE_THRESHOLD) { // Only consider exact 0 as on-track
+    if (Math.abs(diff) <= BALANCE_THRESHOLD) {
       return WEEKLY_BALANCE_STATUS.ON_TRACK;
     }
     return diff > 0 ? WEEKLY_BALANCE_STATUS.EXCESS : WEEKLY_BALANCE_STATUS.UNDER;
@@ -67,45 +67,22 @@ const WeeklyBalanceIndicator = ({ category, balance }) => {
     }
   };
   
-  // Format the difference value for display with proper quarter unit formatting
+  // Format the difference value for display
   const formatDifference = (diff) => {
-    // Round to nearest quarter unit
-    const rounded = Math.round(diff * 4) / 4;
+    if (Math.abs(diff) <= BALANCE_THRESHOLD) return '';
     
-    // Format with proper decimal display
-    if (rounded === Math.floor(rounded)) {
-      // Whole number
-      return rounded > 0 ? `+${rounded}` : `${rounded}`;
-    } else {
-      // Quarter, half, or three-quarter units
-      const fractionalPart = Math.abs(rounded) % 1;
-      const integerPart = Math.floor(Math.abs(rounded));
-      let formattedValue;
-      
-      if (Math.abs(fractionalPart - 0.25) < 0.01) {
-        formattedValue = `${integerPart}.25`;
-      } else if (Math.abs(fractionalPart - 0.5) < 0.01) {
-        formattedValue = `${integerPart}.5`;
-      } else if (Math.abs(fractionalPart - 0.75) < 0.01) {
-        formattedValue = `${integerPart}.75`;
-      } else {
-        formattedValue = Math.abs(rounded).toFixed(2);
-      }
-      
-      return rounded > 0 ? `+${formattedValue}` : `-${formattedValue}`;
-    }
+    // Round to nearest 0.5 to match the app's unit increment
+    const rounded = Math.round(diff * 2) / 2;
+    return rounded > 0 ? `+${rounded.toFixed(1)}` : rounded.toFixed(1);
   };
   
   // Get tooltip text based on status
   const getTooltipText = (statusType, diff, categoryName) => {
-    // Format the difference value for display in the tooltip
-    const formattedDiff = formatDifference(Math.abs(diff)).replace('+', '');
-    
     switch(statusType) {
       case WEEKLY_BALANCE_STATUS.EXCESS:
-        return `You're ${formattedDiff} units over on ${categoryName.toLowerCase()} this week. Consider reducing intake.`;
+        return `You're ${Math.abs(diff).toFixed(1)} units over on ${categoryName.toLowerCase()} this week. Consider reducing intake.`;
       case WEEKLY_BALANCE_STATUS.UNDER:
-        return `You're ${formattedDiff} units under on ${categoryName.toLowerCase()} this week. Try to increase intake.`;
+        return `You're ${Math.abs(diff).toFixed(1)} units under on ${categoryName.toLowerCase()} this week. Try to increase intake.`;
       case WEEKLY_BALANCE_STATUS.ON_TRACK:
         return `You're on track with ${categoryName.toLowerCase()} this week. Keep it up!`;
       default:
