@@ -1,32 +1,377 @@
 // Main application component
 console.log('NutriTrack script starting...');
 
-// Constants for fine increment control
-const UNIT_FINE_INCREMENT = 0.25; // Smaller increment for long press
-const LONG_PRESS_DURATION = 500; // Duration in ms to detect a long press
+// Define constants for weekly balance status (normally in WeeklyBalanceIndicator.js)
+const WEEKLY_BALANCE_STATUS = {
+  EXCESS: 'excess',
+  UNDER: 'under',
+  ON_TRACK: 'on-track'
+};
 
-// Update version number for new features and bug fixes
-const APP_VERSION = '1.9.1';
+// Threshold for determining if consumption is "on track" (±0.5 units)
+const BALANCE_THRESHOLD = 0.5;
 
-// Improved format unit number for display to correctly show quarter units
+// Weekly Balance utility functions (normally in weeklyBalance.js)
+// Helper function to get the start date (Sunday) of the week containing the given date
+const getWeekStartDate = (dateStr) => {
+  const date = new Date(dateStr);
+  const day = date.getDay(); // 0 = Sunday, 1 = Monday, etc.
+  
+  // Calculate how many days to go back to reach Sunday
+  const daysToSubtract = day;
+  
+  // Create new date for Sunday
+  const sunday = new Date(date);
+  sunday.setDate(date.getDate() - daysToSubtract);
+  
+  // Return in YYYY-MM-DD format
+  return sunday.toISOString().split('T')[0];
+};
+
+// Helper function to get the end date (Saturday) of the week containing the given date
+const getWeekEndDate = (dateStr) => {
+  const date = new Date(dateStr);
+  const day = date.getDay(); // 0 = Sunday, 1 = Monday, etc.
+  
+  // Calculate how many days to add to reach Saturday
+  const daysToAdd = 6 - day;
+  
+  // Create new date for Saturday
+  const saturday = new Date(date);
+  saturday.setDate(date.getDate() + daysToAdd);
+  
+  // Return in YYYY-MM-DD format
+  return saturday.toISOString().split('T')[0];
+};
+
+// Format date range for display
+const formatWeekDateRange = (startDate, endDate) => {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  
+  const startMonth = start.toLocaleString('default', { month: 'short' });
+  const endMonth = end.toLocaleString('default', { month: 'short' });
+  
+  const startDay = start.getDate();
+  const endDay = end.getDate();
+  
+  // If same month, don't repeat month
+  if (startMonth === endMonth) {
+    return `${startMonth} ${startDay} - ${endDay}`;
+  }
+  
+  return `${startMonth} ${startDay} - ${endMonth} ${endDay}`;
+};
+
+// Calculate the weekly balance for all categories
+const calculateWeeklyBalance = (history, today = new Date().toISOString().split('T')[0]) => {
+  // Get current week's start and end dates
+  const weekStart = getWeekStartDate(today);
+  const weekEnd = getWeekEndDate(today);
+  
+  console.log(`Calculating weekly balance: ${weekStart} to ${weekEnd}`);
+  
+  // Filter history to only include days in current week that are not in the future
+  const weekHistory = history.filter(day => {
+    return day.date >= weekStart && day.date <= weekEnd && day.date <= today;
+  });
+  
+  // Initialize results
+  const results = {
+    weekDateRange: formatWeekDateRange(weekStart, weekEnd),
+    categories: {}
+  };
+  
+  // If no history for this week, return empty results
+  if (weekHistory.length === 0) {
+    return results;
+  }
+  
+  // For each category, calculate the balance
+  FOOD_CATEGORIES.forEach(category => {
+    const categoryId = category.id;
+    
+    // Calculate actual consumption for the week so far
+    const actualConsumption = weekHistory.reduce((sum, day) => {
+      return sum + (day[categoryId] || 0);
+    }, 0);
+    
+    // Calculate planned consumption based on day types
+    const plannedConsumption = weekHistory.reduce((sum, day) => {
+      const dayType = day.dayType || 'normal';
+      
+      // For free meal days, count the consumption as planned
+      // For other day types, use the maxUnits value
+      if (dayType === 'free') {
+        return sum + (day[categoryId] || 0);
+      } else {
+        return sum + category.maxUnits[dayType];
+      }
+    }, 0);
+    
+    // Calculate the difference (negative means under, positive means over)
+    const difference = actualConsumption - plannedConsumption;
+    
+    // Store results
+    results.categories[categoryId] = {
+      actual: actualConsumption,
+      planned: plannedConsumption,
+      difference: difference
+    };
+  });
+  
+  return results;
+};
+
+// Format unit number for display (copied from FoodCategory.js)
 const formatUnitNumber = (value) => {
   // If it's a whole number, don't show the decimal
   if (value === Math.floor(value)) {
     return value.toString();
   }
   
-  // Format quarter units correctly
-  const fractionalPart = value % 1;
-  if (Math.abs(fractionalPart - 0.25) < 0.01) {
-    return Math.floor(value) + ".25";
-  } else if (Math.abs(fractionalPart - 0.5) < 0.01) {
-    return Math.floor(value) + ".5";
-  } else if (Math.abs(fractionalPart - 0.75) < 0.01) {
-    return Math.floor(value) + ".75";
+  // Otherwise, show with 1 decimal place
+  return value.toFixed(1);
+};
+
+// Render half circles for a food category (copied from FoodCategory.js)
+const renderHalfCircles = (categoryId, category, dayData) => {
+  const currentUnits = dayData[categoryId] || 0;
+  const dayType = dayData.dayType || 'normal';
+  const maxUnits = category.maxUnits[dayType];
+  
+  // For free meal days, we don't show excess units in red
+  const isFreeMealDay = dayType === 'free';
+  
+  // Only check for exceeded if it's not a free meal day and maxUnits is finite
+  const isExceeded = !isFreeMealDay && isFinite(maxUnits) && currentUnits > maxUnits;
+  
+  // For regular days, cap the visual display at maxUnits
+  // For free days, show all units in the regular color
+  const fullUnits = isFreeMealDay ? currentUnits : (isExceeded ? maxUnits : currentUnits);
+  const excessUnits = isFreeMealDay ? 0 : (isExceeded ? currentUnits - maxUnits : 0);
+  
+  // For free days, adapt the number of circles shown
+  // We want to show at least the normal day max (for reference) plus any excess
+  const displayMax = isFreeMealDay 
+    ? Math.max(category.maxUnits.normal, Math.ceil(currentUnits))
+    : maxUnits;
+  
+  // Each full unit is represented by 2 half-circles
+  const totalHalfCircles = displayMax * 2;
+  const fullHalfCircles = fullUnits * 2;
+  
+  // Handle half units by calculating how many full and half circles to show
+  const fullCirclesToShow = Math.floor(fullHalfCircles / 2);
+  const hasHalfCircle = fullHalfCircles % 2 === 1;
+  
+  // Create empty containers for all possible half circles
+  const units = Array.from({ length: totalHalfCircles }, (_, index) => {
+    const isLeft = index % 2 === 0;
+    const pairIndex = Math.floor(index / 2);
+    
+    // Determine if this half-circle should be filled
+    let isFilled;
+    if (fullCirclesToShow > pairIndex) {
+      // Both halves of this circle are filled
+      isFilled = true;
+    } else if (fullCirclesToShow === pairIndex && hasHalfCircle && isLeft) {
+      // Only the left half of this circle is filled (for half units)
+      isFilled = true;
+    } else {
+      // This half-circle is not filled
+      isFilled = false;
+    }
+    
+    return (
+      <div 
+        key={`half-${index}`} 
+        className={`w-5 h-5 ${isLeft ? 'rounded-l-full' : 'rounded-r-full'}`}
+        style={{ 
+          backgroundColor: isFilled ? category.color : category.bgColor,
+          margin: '0 0px'
+        }}
+      />
+    );
+  });
+  
+  // Handle excess units the same way
+  const excessHalfCircles = excessUnits * 2;
+  const excessFullCircles = Math.floor(excessHalfCircles / 2);
+  const hasExcessHalf = excessHalfCircles % 2 === 1;
+  
+  const excess = !isFreeMealDay ? Array.from({ length: excessHalfCircles }, (_, index) => {
+    const isLeft = index % 2 === 0;
+    const pairIndex = Math.floor(index / 2);
+    
+    let isExcessFilled = false;
+    if (excessFullCircles > pairIndex) {
+      isExcessFilled = true;
+    } else if (excessFullCircles === pairIndex && hasExcessHalf && isLeft) {
+      isExcessFilled = true;
+    }
+    
+    return (
+      <div 
+        key={`excess-half-${index}`} 
+        className={`w-5 h-5 ${isLeft ? 'rounded-l-full' : 'rounded-r-full'}`}
+        style={{ 
+          backgroundColor: isExcessFilled ? '#FF3B30' : category.bgColor,
+          margin: '0 0px'
+        }}
+      />
+    );
+  }) : [];
+  
+  // Group the half-circles into pairs for better visual display
+  const pairedUnits = [];
+  for (let i = 0; i < units.length; i += 2) {
+    if (i + 1 < units.length) {
+      pairedUnits.push(
+        <div key={`pair-${i}`} className="flex" style={{ margin: '0 1px' }}>
+          {units[i]}
+          {units[i + 1]}
+        </div>
+      );
+    } else {
+      // Just in case there's an odd number
+      pairedUnits.push(
+        <div key={`pair-${i}`} className="flex" style={{ margin: '0 1px' }}>
+          {units[i]}
+        </div>
+      );
+    }
   }
   
-  // Fallback to one decimal place
-  return value.toFixed(1);
+  // Group excess half-circles the same way
+  const pairedExcess = [];
+  for (let i = 0; i < excess.length; i += 2) {
+    if (i + 1 < excess.length) {
+      pairedExcess.push(
+        <div key={`excess-pair-${i}`} className="flex" style={{ margin: '0 1px' }}>
+          {excess[i]}
+          {excess[i + 1]}
+        </div>
+      );
+    } else {
+      pairedExcess.push(
+        <div key={`excess-pair-${i}`} className="flex" style={{ margin: '0 1px' }}>
+          {excess[i]}
+        </div>
+      );
+    }
+  }
+  
+  return [...pairedUnits, ...pairedExcess];
+};
+
+// The Weekly Balance Indicator component
+const WeeklyBalanceIndicator = ({ category, balance }) => {
+  // Skip rendering if balance is null/undefined (not enough data)
+  if (balance === null || balance === undefined) {
+    return null;
+  }
+  
+  // Determine status based on balance
+  const getStatus = (diff) => {
+    if (Math.abs(diff) < 0.01) { // Only consider exact 0 as on-track
+      return WEEKLY_BALANCE_STATUS.ON_TRACK;
+    }
+    return diff > 0 ? WEEKLY_BALANCE_STATUS.EXCESS : WEEKLY_BALANCE_STATUS.UNDER;
+  };
+  
+  const status = getStatus(balance);
+  
+  // Get appropriate icon for status
+  const getStatusIcon = (statusType) => {
+    switch(statusType) {
+      case WEEKLY_BALANCE_STATUS.EXCESS: 
+        return (
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 inline -mt-0.5 mr-0.5 fill-red-500 dark:fill-red-400" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M3.293 9.707a1 1 0 010-1.414l6-6a1 1 0 011.414 0l6 6a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L4.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
+          </svg>
+        );
+      case WEEKLY_BALANCE_STATUS.UNDER:
+        return (
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 inline -mt-0.5 mr-0.5 fill-blue-500 dark:fill-blue-400" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M16.707 10.293a1 1 0 010 1.414l-6 6a1 1 0 01-1.414 0l-6-6a1 1 0 111.414-1.414L9 14.586V3a1 1 0 012 0v11.586l4.293-4.293a1 1 0 011.414 0z" clipRule="evenodd" />
+          </svg>
+        );
+      case WEEKLY_BALANCE_STATUS.ON_TRACK:
+        return (
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 inline -mt-0.5 mr-0.5 fill-green-500 dark:fill-green-400" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+          </svg>
+        );
+      default: 
+        return null;
+    }
+  };
+  
+  // Get text color based on status
+  const getStatusColor = (statusType) => {
+    switch(statusType) {
+      case WEEKLY_BALANCE_STATUS.EXCESS: 
+        return 'text-red-500 dark:text-red-400';
+      case WEEKLY_BALANCE_STATUS.UNDER: 
+        return 'text-blue-500 dark:text-blue-400';
+      case WEEKLY_BALANCE_STATUS.ON_TRACK: 
+        return 'text-green-500 dark:text-green-400';
+      default: 
+        return 'text-gray-500 dark:text-gray-400';
+    }
+  };
+  
+// Format the difference value for display
+  const formatDifference = (diff) => {
+    // Always show the value, even if it's 0 or within threshold
+    const rounded = Math.round(diff * 2) / 2;
+    return rounded > 0 ? `+${rounded.toFixed(1)}` : rounded.toFixed(1);
+  };
+  
+  // Get tooltip text based on status
+  const getTooltipText = (statusType, diff, categoryName) => {
+    switch(statusType) {
+      case WEEKLY_BALANCE_STATUS.EXCESS:
+        return `You're ${Math.abs(diff).toFixed(1)} units over on ${categoryName.toLowerCase()} this week. Consider reducing intake.`;
+      case WEEKLY_BALANCE_STATUS.UNDER:
+        return `You're ${Math.abs(diff).toFixed(1)} units under on ${categoryName.toLowerCase()} this week. Try to increase intake.`;
+      case WEEKLY_BALANCE_STATUS.ON_TRACK:
+        return `You're on track with ${categoryName.toLowerCase()} this week. Keep it up!`;
+      default:
+        return '';
+    }
+  };
+  
+  // Background color based on status
+  const getBgColor = (statusType) => {
+    switch(statusType) {
+      case WEEKLY_BALANCE_STATUS.EXCESS:
+        return 'bg-red-100 dark:bg-red-900/30';
+      case WEEKLY_BALANCE_STATUS.UNDER:
+        return 'bg-blue-100 dark:bg-blue-900/30';
+      case WEEKLY_BALANCE_STATUS.ON_TRACK:
+        return 'bg-green-100 dark:bg-green-900/30';
+      default:
+        return 'bg-gray-100 dark:bg-gray-800';
+    }
+  };
+  
+  return (
+    <div className={`flex items-center ml-auto px-2 py-1 rounded-md ${getBgColor(status)}`}>
+      <span className={`text-xs font-medium ${getStatusColor(status)}`}>
+        {getStatusIcon(status)} {formatDifference(balance)}
+      </span>
+      
+      {/* Info tooltip */}
+      <div className="group relative cursor-help ml-1">
+        <span className="text-xs text-gray-500 dark:text-gray-400">ⓘ</span>
+        <div className="absolute right-0 bottom-full mb-2 w-48 p-2 bg-white dark:bg-gray-700 shadow-lg rounded-md text-xs text-gray-600 dark:text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
+          {getTooltipText(status, balance, category.name)}
+        </div>
+      </div>
+    </div>
+  );
 };
 
 // The main NutriTrack component with its functionality
@@ -42,10 +387,6 @@ const NutriTrack = () => {
   const [editingDay, setEditingDay] = React.useState(null);
   const [isDarkMode, setIsDarkMode] = React.useState(loadDarkModeFromCookie());
   const [weeklyBalance, setWeeklyBalance] = React.useState(null);
-  
-  // State for long press functionality
-  const [longPressTimer, setLongPressTimer] = React.useState(null);
-  const [isLongPress, setIsLongPress] = React.useState(false);
   
   // Shorthand for current day's unit counts
   const unitCounts = appState.currentDay;
@@ -111,10 +452,8 @@ const NutriTrack = () => {
   const updateUnitCount = (categoryId, newValue, day = null) => {
     if (newValue < 0) return;
     
-    // For fine increments (0.25), we round to nearest quarter unit
-    // For regular increments (0.5), we round to nearest half unit
-    const roundingFactor = isLongPress ? 4 : 2; // 4 for quarter units, 2 for half units
-    newValue = Math.round(newValue * roundingFactor) / roundingFactor;
+    // Round to nearest half unit to avoid floating point issues
+    newValue = Math.round(newValue * 2) / 2;
     
     if (day) {
       // We're editing a specific history day
@@ -154,126 +493,28 @@ const NutriTrack = () => {
     }
   };
   
-  const incrementUnit = (categoryId, day = null, useFinePrecision = false) => {
-    const increment = useFinePrecision ? UNIT_FINE_INCREMENT : UNIT_INCREMENT;
-    
+  const incrementUnit = (categoryId, day = null) => {
     if (day) {
       // We're editing a historical day
-      updateUnitCount(categoryId, (day[categoryId] || 0) + increment, day);
+      updateUnitCount(categoryId, (day[categoryId] || 0) + UNIT_INCREMENT, day);
     } else {
       // We're updating the current day
-      updateUnitCount(categoryId, unitCounts[categoryId] + increment);
+      updateUnitCount(categoryId, unitCounts[categoryId] + UNIT_INCREMENT);
     }
   };
 
-  const decrementUnit = (categoryId, day = null, useFinePrecision = false) => {
-    const increment = useFinePrecision ? UNIT_FINE_INCREMENT : UNIT_INCREMENT;
-    
+  const decrementUnit = (categoryId, day = null) => {
     if (day) {
       // We're editing a historical day
-      if ((day[categoryId] || 0) >= increment) {
-        updateUnitCount(categoryId, day[categoryId] - increment, day);
+      if ((day[categoryId] || 0) >= UNIT_INCREMENT) {
+        updateUnitCount(categoryId, day[categoryId] - UNIT_INCREMENT, day);
       }
     } else {
       // We're updating the current day
-      if (unitCounts[categoryId] >= increment) {
-        updateUnitCount(categoryId, unitCounts[categoryId] - increment);
+      if (unitCounts[categoryId] >= UNIT_INCREMENT) {
+        updateUnitCount(categoryId, unitCounts[categoryId] - UNIT_INCREMENT);
       }
     }
-  };
-  
-  const handleTouchStart = (id, action, day = null) => {
-    setActiveButton(`${id}-${action}`);
-    setIsLongPress(false); // Start with regular mode
-    
-    // Clear any existing timer
-    if (longPressTimer) {
-      clearTimeout(longPressTimer);
-    }
-    
-    // Set a timer to detect long press
-    const timer = setTimeout(() => {
-      console.log('Long press detected');
-      setIsLongPress(true); // Switch to long press mode
-      
-      // We don't do anything here - just mark as long press
-      // The action will happen on touch end
-    }, LONG_PRESS_DURATION);
-    
-    setLongPressTimer(timer);
-    
-    // Perform initial action with regular increment
-    if (action === 'inc') {
-      incrementUnit(id, day, false); // Use standard increment
-    } else if (action === 'dec') {
-      decrementUnit(id, day, false); // Use standard increment
-    }
-  };
-  
-  // For mouse events (desktop)
-  const handleMouseDown = (id, action, day = null) => {
-    if (isTouchActive) return; // Skip for touch devices
-    
-    setActiveButton(`${id}-${action}`);
-    setIsLongPress(false); // Start with regular mode
-    
-    // Clear any existing timer
-    if (longPressTimer) {
-      clearTimeout(longPressTimer);
-    }
-    
-    // Set a timer to detect long press
-    const timer = setTimeout(() => {
-      console.log('Long mouse press detected');
-      setIsLongPress(true); // Switch to long press mode
-      
-      // We don't do anything here - just mark as long press
-      // The action will happen on mouse up
-    }, LONG_PRESS_DURATION);
-    
-    setLongPressTimer(timer);
-    
-    // Perform initial action with regular increment
-    if (action === 'inc') {
-      incrementUnit(id, day, false); // Use standard increment
-    } else if (action === 'dec') {
-      decrementUnit(id, day, false); // Use standard increment
-    }
-  };
-  
-  // Common handler for button release (touch or mouse)
-  const handleButtonRelease = (id, action, day = null) => {
-    // If long press was active, perform the fine-grained adjustment
-    if (isLongPress) {
-      console.log('Applying fine adjustment on release');
-      if (action === 'inc') {
-        incrementUnit(id, day, true); // Use fine increment
-      } else if (action === 'dec') {
-        decrementUnit(id, day, true); // Use fine increment
-      }
-    }
-    
-    // Reset states (with a small delay to prevent flicker)
-    setTimeout(() => {
-      setActiveButton(null);
-    }, 50);
-    
-    setIsLongPress(false);
-    
-    // Clear the long press timer
-    if (longPressTimer) {
-      clearTimeout(longPressTimer);
-      setLongPressTimer(null);
-    }
-  };
-  
-  const handleTouchEnd = (id, action, day = null) => {
-    handleButtonRelease(id, action, day);
-  };
-  
-  const handleMouseUp = (id, action, day = null) => {
-    if (isTouchActive) return; // Skip for touch devices
-    handleButtonRelease(id, action, day);
   };
   
   const handleDayTypeChange = (newDayType, day = null) => {
@@ -346,6 +587,30 @@ const NutriTrack = () => {
     }
   };
   
+  const handleTouchStart = (id, action, day = null) => {
+    setActiveButton(`${id}-${action}`);
+    
+    if (action === 'inc') {
+      incrementUnit(id, day);
+    } else if (action === 'dec') {
+      decrementUnit(id, day);
+    }
+  };
+  
+  const handleTouchEnd = () => {
+    setActiveButton(null);
+  };
+  
+  const handleButtonClick = (id, action, day = null) => {
+    if (isTouchActive) return;
+    
+    if (action === 'inc') {
+      incrementUnit(id, day);
+    } else if (action === 'dec') {
+      decrementUnit(id, day);
+    }
+  };
+
   const toggleHistory = () => {
     setShowHistory(!showHistory);
     // Exit editing mode when toggling history
@@ -403,16 +668,15 @@ const NutriTrack = () => {
     setIsDarkMode(!isDarkMode);
   };
 
-  // Enhanced FoodCategory for current tracking screen
+  // Modified FoodCategory for weekly balance
   const EnhancedFoodCategory = ({ 
     category, 
     unitCount, 
     dayType,
     activeButton, 
     onTouchStart, 
-    onTouchEnd,
-    onMouseDown,
-    onMouseUp,
+    onTouchEnd, 
+    onClick,
     weeklyBalance = null
   }) => {
     const maxUnits = category.maxUnits[dayType];
@@ -445,16 +709,12 @@ const NutriTrack = () => {
           <div className="flex space-x-2">
             <button 
               onTouchStart={() => onTouchStart(category.id, 'dec')}
-              onTouchEnd={() => onTouchEnd(category.id, 'dec')}
-              onMouseDown={() => onMouseDown(category.id, 'dec')}
-              onMouseUp={() => onMouseUp(category.id, 'dec')}
-              onMouseLeave={() => onMouseUp(category.id, 'dec')}
+              onTouchEnd={onTouchEnd}
+              onClick={() => onClick(category.id, 'dec')}
               disabled={unitCount <= 0}
               className={`w-12 h-12 flex items-center justify-center text-lg font-bold rounded-full focus:outline-none transition-colors duration-150 ${
                 activeButton === `${category.id}-dec` 
-                  ? (isLongPress 
-                      ? 'bg-indigo-400 dark:bg-indigo-600 text-white' // Long press style
-                      : 'bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200') // Regular press style
+                  ? 'bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200' 
                   : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600'
               } disabled:opacity-40`}
               aria-label={`Decrease ${category.name}`}
@@ -463,15 +723,11 @@ const NutriTrack = () => {
             </button>
             <button 
               onTouchStart={() => onTouchStart(category.id, 'inc')}
-              onTouchEnd={() => onTouchEnd(category.id, 'inc')}
-              onMouseDown={() => onMouseDown(category.id, 'inc')}
-              onMouseUp={() => onMouseUp(category.id, 'inc')}
-              onMouseLeave={() => onMouseUp(category.id, 'inc')}
+              onTouchEnd={onTouchEnd}
+              onClick={() => onClick(category.id, 'inc')}
               className={`w-12 h-12 flex items-center justify-center text-lg font-bold rounded-full focus:outline-none transition-colors duration-150 ${
                 activeButton === `${category.id}-inc` 
-                  ? (isLongPress 
-                      ? 'bg-indigo-400 dark:bg-indigo-600 text-white' // Long press style
-                      : 'bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200') // Regular press style 
+                  ? 'bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200' 
                   : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600'
               }`}
               aria-label={`Increase ${category.name}`}
@@ -481,9 +737,9 @@ const NutriTrack = () => {
           </div>
         </div>
         
-        {/* BODY - half-circle units and weekly balance indicator */}
+        {/* BODY - half circles and weekly balance indicator */}
         <div className="flex justify-between items-center">
-          <div className="flex flex-wrap overflow-x-auto py-2 hide-scrollbar">
+          <div className="flex flex-wrap py-2 hide-scrollbar">
             {renderHalfCircles(category.id, category, { [category.id]: unitCount, dayType })}
           </div>
           
@@ -542,7 +798,7 @@ const NutriTrack = () => {
             activeButton={activeButton}
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
-            onClick={() => {}} // No longer used
+            onClick={handleButtonClick}
             onDayTypeChange={(newType) => handleDayTypeChange(newType, editingDay)}
           />
         ) : showHistory ? (
@@ -560,10 +816,9 @@ const NutriTrack = () => {
               unitCount={unitCounts[category.id]}
               dayType={unitCounts.dayType || 'normal'}
               activeButton={activeButton}
-              onTouchStart={handleTouchStart}
+              onTouchStart={(id, action) => handleTouchStart(id, action)}
               onTouchEnd={handleTouchEnd}
-              onMouseDown={handleMouseDown}
-              onMouseUp={handleMouseUp}
+              onClick={(id, action) => handleButtonClick(id, action)}
               weeklyBalance={weeklyBalance} // Pass weekly balance data
             />
           ))
