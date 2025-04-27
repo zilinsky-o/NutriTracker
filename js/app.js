@@ -1,134 +1,12 @@
 // Main application component
 console.log('NutriTrack script starting...');
 
-// Define constants for weekly balance status
-const WEEKLY_BALANCE_STATUS = {
-  EXCESS: 'excess',
-  UNDER: 'under',
-  ON_TRACK: 'on-track'
-};
-
-// Threshold for determining if consumption is "on track" (±0.5 units)
-const BALANCE_THRESHOLD = 0.5;
-
-// Constants for long press feature
+// Constants for fine increment control
 const UNIT_FINE_INCREMENT = 0.25; // Smaller increment for long press
 const LONG_PRESS_DURATION = 500; // Duration in ms to detect a long press
 
 // Update version number for new features and bug fixes
 const APP_VERSION = '1.9.1';
-
-// Weekly Balance utility functions
-// Helper function to get the start date (Sunday) of the week containing the given date
-const getWeekStartDate = (dateStr) => {
-  const date = new Date(dateStr);
-  const day = date.getDay(); // 0 = Sunday, 1 = Monday, etc.
-  
-  // Calculate how many days to go back to reach Sunday
-  const daysToSubtract = day;
-  
-  // Create new date for Sunday
-  const sunday = new Date(date);
-  sunday.setDate(date.getDate() - daysToSubtract);
-  
-  // Return in YYYY-MM-DD format
-  return sunday.toISOString().split('T')[0];
-};
-
-// Helper function to get the end date (Saturday) of the week containing the given date
-const getWeekEndDate = (dateStr) => {
-  const date = new Date(dateStr);
-  const day = date.getDay(); // 0 = Sunday, 1 = Monday, etc.
-  
-  // Calculate how many days to add to reach Saturday
-  const daysToAdd = 6 - day;
-  
-  // Create new date for Saturday
-  const saturday = new Date(date);
-  saturday.setDate(date.getDate() + daysToAdd);
-  
-  // Return in YYYY-MM-DD format
-  return saturday.toISOString().split('T')[0];
-};
-
-// Format date range for display
-const formatWeekDateRange = (startDate, endDate) => {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  
-  const startMonth = start.toLocaleString('default', { month: 'short' });
-  const endMonth = end.toLocaleString('default', { month: 'short' });
-  
-  const startDay = start.getDate();
-  const endDay = end.getDate();
-  
-  // If same month, don't repeat month
-  if (startMonth === endMonth) {
-    return `${startMonth} ${startDay} - ${endDay}`;
-  }
-  
-  return `${startMonth} ${startDay} - ${endMonth} ${endDay}`;
-};
-
-// Calculate the weekly balance for all categories
-const calculateWeeklyBalance = (history, today = new Date().toISOString().split('T')[0]) => {
-  // Get current week's start and end dates
-  const weekStart = getWeekStartDate(today);
-  const weekEnd = getWeekEndDate(today);
-  
-  console.log(`Calculating weekly balance: ${weekStart} to ${weekEnd}`);
-  
-  // Filter history to only include days in current week that are not in the future
-  const weekHistory = history.filter(day => {
-    return day.date >= weekStart && day.date <= weekEnd && day.date <= today;
-  });
-  
-  // Initialize results
-  const results = {
-    weekDateRange: formatWeekDateRange(weekStart, weekEnd),
-    categories: {}
-  };
-  
-  // If no history for this week, return empty results
-  if (weekHistory.length === 0) {
-    return results;
-  }
-  
-  // For each category, calculate the balance
-  FOOD_CATEGORIES.forEach(category => {
-    const categoryId = category.id;
-    
-    // Calculate actual consumption for the week so far
-    const actualConsumption = weekHistory.reduce((sum, day) => {
-      return sum + (day[categoryId] || 0);
-    }, 0);
-    
-    // Calculate planned consumption based on day types
-    const plannedConsumption = weekHistory.reduce((sum, day) => {
-      const dayType = day.dayType || 'normal';
-      
-      // For free meal days, count the consumption as planned
-      // For other day types, use the maxUnits value
-      if (dayType === 'free') {
-        return sum + (day[categoryId] || 0);
-      } else {
-        return sum + category.maxUnits[dayType];
-      }
-    }, 0);
-    
-    // Calculate the difference (negative means under, positive means over)
-    const difference = actualConsumption - plannedConsumption;
-    
-    // Store results
-    results.categories[categoryId] = {
-      actual: actualConsumption,
-      planned: plannedConsumption,
-      difference: difference
-    };
-  });
-  
-  return results;
-};
 
 // Improved format unit number for display to correctly show quarter units
 const formatUnitNumber = (value) => {
@@ -151,272 +29,6 @@ const formatUnitNumber = (value) => {
   return value.toFixed(1);
 };
 
-// Render half circles for a food category (improved to show quarter units)
-const renderHalfCircles = (categoryId, category, dayData) => {
-  const currentUnits = dayData[categoryId] || 0;
-  const dayType = dayData.dayType || 'normal';
-  const maxUnits = category.maxUnits[dayType];
-  
-  // For free meal days, we don't show excess units in red
-  const isFreeMealDay = dayType === 'free';
-  
-  // Only check for exceeded if it's not a free meal day and maxUnits is finite
-  const isExceeded = !isFreeMealDay && isFinite(maxUnits) && currentUnits > maxUnits;
-  
-  // For regular days, cap the visual display at maxUnits
-  // For free days, show all units in the regular color
-  const fullUnits = isFreeMealDay ? currentUnits : (isExceeded ? maxUnits : currentUnits);
-  const excessUnits = isFreeMealDay ? 0 : (isExceeded ? currentUnits - maxUnits : 0);
-  
-  // For free days, adapt the number of circles shown
-  // We want to show at least the normal day max (for reference) plus any excess
-  const displayMax = isFreeMealDay 
-    ? Math.max(category.maxUnits.normal, Math.ceil(currentUnits))
-    : maxUnits;
-  
-  // Each full unit is represented by 4 quarter-circles (instead of 2 half-circles)
-  const totalQuarterCircles = displayMax * 4;
-  const fullQuarterCircles = Math.round(fullUnits * 4);  // Round to handle potential floating point issues
-  
-  // Create an array to hold all quarter circles
-  const units = [];
-  
-  // Generate the circles
-  for (let i = 0; i < totalQuarterCircles; i += 4) {
-    // Each set of 4 quarters represents one full unit
-    const unitIndex = i / 4;
-    const remainingQuarters = Math.max(0, Math.min(4, fullQuarterCircles - i));
-    
-    // Container for this unit
-    const unitContainer = (
-      <div key={`unit-${unitIndex}`} className="flex items-center mx-1 my-1">
-        <div className="relative w-10 h-10 rounded-full">
-          {/* Base circle (outline) */}
-          <div className="absolute inset-0 rounded-full border-2 border-gray-200 dark:border-gray-700"></div>
-          
-          {/* First quarter (0-25%) */}
-          {remainingQuarters >= 1 && (
-            <div className="absolute top-0 left-0 w-1/2 h-1/2 overflow-hidden">
-              <div className="absolute top-0 left-0 w-10 h-10 rounded-full" style={{ backgroundColor: category.color }}></div>
-            </div>
-          )}
-          
-          {/* Second quarter (25-50%) */}
-          {remainingQuarters >= 2 && (
-            <div className="absolute top-0 right-0 w-1/2 h-1/2 overflow-hidden">
-              <div className="absolute top-0 right-0 w-10 h-10 rounded-full" style={{ backgroundColor: category.color }}></div>
-            </div>
-          )}
-          
-          {/* Third quarter (50-75%) */}
-          {remainingQuarters >= 3 && (
-            <div className="absolute bottom-0 right-0 w-1/2 h-1/2 overflow-hidden">
-              <div className="absolute bottom-0 right-0 w-10 h-10 rounded-full" style={{ backgroundColor: category.color }}></div>
-            </div>
-          )}
-          
-          {/* Fourth quarter (75-100%) */}
-          {remainingQuarters >= 4 && (
-            <div className="absolute bottom-0 left-0 w-1/2 h-1/2 overflow-hidden">
-              <div className="absolute bottom-0 left-0 w-10 h-10 rounded-full" style={{ backgroundColor: category.color }}></div>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-    
-    units.push(unitContainer);
-    
-    // Break if we've reached the display max
-    if (unitIndex >= displayMax - 1) break;
-  }
-  
-  // Handle excess units similarly
-  const excessQuarterCircles = Math.round(excessUnits * 4);
-  const excess = [];
-  
-  if (!isFreeMealDay && excessQuarterCircles > 0) {
-    for (let i = 0; i < excessQuarterCircles; i += 4) {
-      // Each set of 4 quarters represents one full unit
-      const unitIndex = i / 4;
-      const remainingQuarters = Math.max(0, Math.min(4, excessQuarterCircles - i));
-      
-      // Container for this excess unit
-      const excessContainer = (
-        <div key={`excess-${unitIndex}`} className="flex items-center mx-1 my-1">
-          <div className="relative w-10 h-10 rounded-full">
-            {/* Base circle (outline) */}
-            <div className="absolute inset-0 rounded-full border-2 border-gray-200 dark:border-gray-700"></div>
-            
-            {/* First quarter (0-25%) */}
-            {remainingQuarters >= 1 && (
-              <div className="absolute top-0 left-0 w-1/2 h-1/2 overflow-hidden">
-                <div className="absolute top-0 left-0 w-10 h-10 rounded-full" style={{ backgroundColor: '#FF3B30' }}></div>
-              </div>
-            )}
-            
-            {/* Second quarter (25-50%) */}
-            {remainingQuarters >= 2 && (
-              <div className="absolute top-0 right-0 w-1/2 h-1/2 overflow-hidden">
-                <div className="absolute top-0 right-0 w-10 h-10 rounded-full" style={{ backgroundColor: '#FF3B30' }}></div>
-              </div>
-            )}
-            
-            {/* Third quarter (50-75%) */}
-            {remainingQuarters >= 3 && (
-              <div className="absolute bottom-0 right-0 w-1/2 h-1/2 overflow-hidden">
-                <div className="absolute bottom-0 right-0 w-10 h-10 rounded-full" style={{ backgroundColor: '#FF3B30' }}></div>
-              </div>
-            )}
-            
-            {/* Fourth quarter (75-100%) */}
-            {remainingQuarters >= 4 && (
-              <div className="absolute bottom-0 left-0 w-1/2 h-1/2 overflow-hidden">
-                <div className="absolute bottom-0 left-0 w-10 h-10 rounded-full" style={{ backgroundColor: '#FF3B30' }}></div>
-              </div>
-            )}
-          </div>
-        </div>
-      );
-      
-      excess.push(excessContainer);
-    }
-  }
-  
-  return [...units, ...excess];
-};
-
-// The Weekly Balance Indicator component
-const WeeklyBalanceIndicator = ({ category, balance }) => {
-  // Skip rendering if balance is null/undefined (not enough data)
-  if (balance === null || balance === undefined) {
-    return null;
-  }
-  
-  // Determine status based on balance
-  const getStatus = (diff) => {
-    if (Math.abs(diff) < 0.01) { // Only consider exact 0 as on-track
-      return WEEKLY_BALANCE_STATUS.ON_TRACK;
-    }
-    return diff > 0 ? WEEKLY_BALANCE_STATUS.EXCESS : WEEKLY_BALANCE_STATUS.UNDER;
-  };
-  
-  const status = getStatus(balance);
-  
-  // Get appropriate icon for status
-  const getStatusIcon = (statusType) => {
-    switch(statusType) {
-      case WEEKLY_BALANCE_STATUS.EXCESS: 
-        return (
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 inline -mt-0.5 mr-0.5 fill-red-500 dark:fill-red-400" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M3.293 9.707a1 1 0 010-1.414l6-6a1 1 0 011.414 0l6 6a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L4.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
-          </svg>
-        );
-      case WEEKLY_BALANCE_STATUS.UNDER:
-        return (
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 inline -mt-0.5 mr-0.5 fill-blue-500 dark:fill-blue-400" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M16.707 10.293a1 1 0 010 1.414l-6 6a1 1 0 01-1.414 0l-6-6a1 1 0 111.414-1.414L9 14.586V3a1 1 0 012 0v11.586l4.293-4.293a1 1 0 011.414 0z" clipRule="evenodd" />
-          </svg>
-        );
-      case WEEKLY_BALANCE_STATUS.ON_TRACK:
-        return (
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 inline -mt-0.5 mr-0.5 fill-green-500 dark:fill-green-400" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-          </svg>
-        );
-      default: 
-        return null;
-    }
-  };
-  
-  // Get text color based on status
-  const getStatusColor = (statusType) => {
-    switch(statusType) {
-      case WEEKLY_BALANCE_STATUS.EXCESS: 
-        return 'text-red-500 dark:text-red-400';
-      case WEEKLY_BALANCE_STATUS.UNDER: 
-        return 'text-blue-500 dark:text-blue-400';
-      case WEEKLY_BALANCE_STATUS.ON_TRACK: 
-        return 'text-green-500 dark:text-green-400';
-      default: 
-        return 'text-gray-500 dark:text-gray-400';
-    }
-  };
-  
-  // Format the difference value for display with proper quarter unit formatting
-  const formatDifference = (diff) => {
-    // Round to nearest quarter unit
-    const rounded = Math.round(diff * 4) / 4;
-    
-    // Format with proper decimal display
-    if (rounded === Math.floor(rounded)) {
-      // Whole number
-      return rounded > 0 ? `+${rounded}` : `${rounded}`;
-    } else {
-      // Quarter, half, or three-quarter units
-      const fractionalPart = Math.abs(rounded) % 1;
-      const integerPart = Math.floor(Math.abs(rounded));
-      let formattedValue;
-      
-      if (Math.abs(fractionalPart - 0.25) < 0.01) {
-        formattedValue = `${integerPart}.25`;
-      } else if (Math.abs(fractionalPart - 0.5) < 0.01) {
-        formattedValue = `${integerPart}.5`;
-      } else if (Math.abs(fractionalPart - 0.75) < 0.01) {
-        formattedValue = `${integerPart}.75`;
-      } else {
-        formattedValue = Math.abs(rounded).toFixed(2);
-      }
-      
-      return rounded > 0 ? `+${formattedValue}` : `-${formattedValue}`;
-    }
-  };
-  
-  // Get tooltip text based on status
-  const getTooltipText = (statusType, diff, categoryName) => {
-    switch(statusType) {
-      case WEEKLY_BALANCE_STATUS.EXCESS:
-        return `You're ${Math.abs(diff).toFixed(2)} units over on ${categoryName.toLowerCase()} this week. Consider reducing intake.`;
-      case WEEKLY_BALANCE_STATUS.UNDER:
-        return `You're ${Math.abs(diff).toFixed(2)} units under on ${categoryName.toLowerCase()} this week. Try to increase intake.`;
-      case WEEKLY_BALANCE_STATUS.ON_TRACK:
-        return `You're on track with ${categoryName.toLowerCase()} this week. Keep it up!`;
-      default:
-        return '';
-    }
-  };
-  
-  // Background color based on status
-  const getBgColor = (statusType) => {
-    switch(statusType) {
-      case WEEKLY_BALANCE_STATUS.EXCESS:
-        return 'bg-red-100 dark:bg-red-900/30';
-      case WEEKLY_BALANCE_STATUS.UNDER:
-        return 'bg-blue-100 dark:bg-blue-900/30';
-      case WEEKLY_BALANCE_STATUS.ON_TRACK:
-        return 'bg-green-100 dark:bg-green-900/30';
-      default:
-        return 'bg-gray-100 dark:bg-gray-800';
-    }
-  };
-  
-  return (
-    <div className={`flex items-center ml-auto px-2 py-1 rounded-md ${getBgColor(status)}`}>
-      <span className={`text-xs font-medium ${getStatusColor(status)}`}>
-        {getStatusIcon(status)} {formatDifference(balance)}
-      </span>
-      
-      {/* Info tooltip */}
-      <div className="group relative cursor-help ml-1">
-        <span className="text-xs text-gray-500 dark:text-gray-400">ⓘ</span>
-        <div className="absolute right-0 bottom-full mb-2 w-48 p-2 bg-white dark:bg-gray-700 shadow-lg rounded-md text-xs text-gray-600 dark:text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
-          {getTooltipText(status, balance, category.name)}
-        </div>
-      </div>
-    </div>
-  );
-};
-
 // The main NutriTrack component with its functionality
 const NutriTrack = () => {
   console.log('Initializing NutriTrack component...');
@@ -431,7 +43,7 @@ const NutriTrack = () => {
   const [isDarkMode, setIsDarkMode] = React.useState(loadDarkModeFromCookie());
   const [weeklyBalance, setWeeklyBalance] = React.useState(null);
   
-  // New state for long press functionality
+  // State for long press functionality
   const [longPressTimer, setLongPressTimer] = React.useState(null);
   const [isLongPress, setIsLongPress] = React.useState(false);
   
@@ -570,6 +182,98 @@ const NutriTrack = () => {
     }
   };
   
+  const handleTouchStart = (id, action, day = null) => {
+    setActiveButton(`${id}-${action}`);
+    setIsLongPress(false); // Start with regular mode
+    
+    // Clear any existing timer
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+    }
+    
+    // Set a timer to detect long press
+    const timer = setTimeout(() => {
+      console.log('Long press detected');
+      setIsLongPress(true); // Switch to long press mode
+    }, LONG_PRESS_DURATION);
+    
+    setLongPressTimer(timer);
+    
+    // Perform initial action with regular increment
+    if (action === 'inc') {
+      incrementUnit(id, day);
+    } else if (action === 'dec') {
+      decrementUnit(id, day);
+    }
+  };
+  
+  // For mouse events (desktop)
+  const handleMouseDown = (id, action, day = null) => {
+    if (isTouchActive) return; // Skip for touch devices
+    
+    setActiveButton(`${id}-${action}`);
+    setIsLongPress(false); // Start with regular mode
+    
+    // Clear any existing timer
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+    }
+    
+    // Set a timer to detect long press
+    const timer = setTimeout(() => {
+      console.log('Long mouse press detected');
+      setIsLongPress(true); // Switch to long press mode
+    }, LONG_PRESS_DURATION);
+    
+    setLongPressTimer(timer);
+    
+    // Perform initial action with regular increment
+    if (action === 'inc') {
+      incrementUnit(id, day);
+    } else if (action === 'dec') {
+      decrementUnit(id, day);
+    }
+  };
+  
+  // Common handler for button release (touch or mouse)
+  const handleButtonRelease = (id, action, day = null) => {
+    // If long press was active, perform the fine-grained adjustment
+    if (isLongPress) {
+      console.log('Applying fine adjustment');
+      if (action === 'inc') {
+        const currentValue = day ? day[id] : unitCounts[id];
+        updateUnitCount(id, currentValue + UNIT_FINE_INCREMENT, day);
+      } else if (action === 'dec') {
+        const currentValue = day ? day[id] : unitCounts[id];
+        if (currentValue >= UNIT_FINE_INCREMENT) {
+          updateUnitCount(id, currentValue - UNIT_FINE_INCREMENT, day);
+        }
+      }
+    }
+    
+    // Reset states (with a small delay to prevent flicker)
+    setTimeout(() => {
+      setActiveButton(null);
+    }, 50);
+    
+    setIsLongPress(false);
+    
+    // Clear the long press timer
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+    }
+  };
+  
+  const handleTouchEnd = (id, action, day = null) => {
+    handleButtonRelease(id, action, day);
+  };
+  
+  const handleMouseUp = (id, action, day = null) => {
+    if (isTouchActive) return; // Skip for touch devices
+    handleButtonRelease(id, action, day);
+  };
+  
   const handleDayTypeChange = (newDayType, day = null) => {
     if (day) {
       // We're editing a historical day
@@ -640,111 +344,6 @@ const NutriTrack = () => {
     }
   };
   
-  // Touch handlers for mobile devices
-  const handleTouchStart = (id, action, day = null) => {
-    setActiveButton(`${id}-${action}`);
-    
-    // Clear any existing timer
-    if (longPressTimer) {
-      clearTimeout(longPressTimer);
-    }
-    
-    // Set a timer to detect long press
-    const timer = setTimeout(() => {
-      console.log('Long press detected');
-      setIsLongPress(true);
-      
-      // Perform action with fine increment
-      if (action === 'inc') {
-        incrementUnit(id, day);
-      } else if (action === 'dec') {
-        decrementUnit(id, day);
-      }
-    }, LONG_PRESS_DURATION);
-    
-    setLongPressTimer(timer);
-    
-    // Perform initial action with regular increment
-    if (action === 'inc') {
-      incrementUnit(id, day);
-    } else if (action === 'dec') {
-      decrementUnit(id, day);
-    }
-  };
-  
-  const handleTouchEnd = () => {
-    // Only clear the button highlight after a short delay to avoid flickering
-    setTimeout(() => {
-      setActiveButton(null);
-    }, 50);
-    
-    // Clear the long press timer
-    if (longPressTimer) {
-      clearTimeout(longPressTimer);
-      setLongPressTimer(null);
-    }
-    
-    // Reset long press state
-    setIsLongPress(false);
-  };
-  
-  // Mouse event handlers for desktop
-  const handleMouseDown = (id, action, day = null) => {
-    if (isTouchActive) return; // Skip for touch devices
-    
-    setActiveButton(`${id}-${action}`);
-    
-    // Clear any existing timer
-    if (longPressTimer) {
-      clearTimeout(longPressTimer);
-    }
-    
-    // Set a timer to detect long press
-    const timer = setTimeout(() => {
-      console.log('Long mouse press detected');
-      setIsLongPress(true);
-      
-      // Perform action with fine increment
-      if (action === 'inc') {
-        incrementUnit(id, day);
-      } else if (action === 'dec') {
-        decrementUnit(id, day);
-      }
-    }, LONG_PRESS_DURATION);
-    
-    setLongPressTimer(timer);
-    
-    // Perform initial action with regular increment
-    if (action === 'inc') {
-      incrementUnit(id, day);
-    } else if (action === 'dec') {
-      decrementUnit(id, day);
-    }
-  };
-  
-  const handleMouseUp = () => {
-    if (isTouchActive) return; // Skip for touch devices
-    
-    // Only clear the button highlight after a short delay to avoid flickering
-    setTimeout(() => {
-      setActiveButton(null);
-    }, 50);
-    
-    // Clear the long press timer
-    if (longPressTimer) {
-      clearTimeout(longPressTimer);
-      setLongPressTimer(null);
-    }
-    
-    // Reset long press state
-    setIsLongPress(false);
-  };
-  
-  // Only for regular clicks (no long press support)
-  const handleClick = (id, action, day = null) => {
-    // This is now handled by mouseDown/mouseUp for both regular and long press
-  };
-
   const toggleHistory = () => {
     setShowHistory(!showHistory);
     // Exit editing mode when toggling history
@@ -802,7 +401,7 @@ const NutriTrack = () => {
     setIsDarkMode(!isDarkMode);
   };
 
-  // Enhanced FoodCategory with quarter unit support
+  // Enhanced FoodCategory for current tracking screen
   const EnhancedFoodCategory = ({ 
     category, 
     unitCount, 
@@ -812,7 +411,6 @@ const NutriTrack = () => {
     onTouchEnd,
     onMouseDown,
     onMouseUp,
-    onClick,
     weeklyBalance = null
   }) => {
     const maxUnits = category.maxUnits[dayType];
@@ -845,10 +443,10 @@ const NutriTrack = () => {
           <div className="flex space-x-2">
             <button 
               onTouchStart={() => onTouchStart(category.id, 'dec')}
-              onTouchEnd={onTouchEnd}
+              onTouchEnd={() => onTouchEnd(category.id, 'dec')}
               onMouseDown={() => onMouseDown(category.id, 'dec')}
-              onMouseUp={onMouseUp}
-              onMouseLeave={onMouseUp}
+              onMouseUp={() => onMouseUp(category.id, 'dec')}
+              onMouseLeave={() => onMouseUp(category.id, 'dec')}
               disabled={unitCount <= 0}
               className={`w-12 h-12 flex items-center justify-center text-lg font-bold rounded-full focus:outline-none transition-colors duration-150 ${
                 activeButton === `${category.id}-dec` 
@@ -863,10 +461,10 @@ const NutriTrack = () => {
             </button>
             <button 
               onTouchStart={() => onTouchStart(category.id, 'inc')}
-              onTouchEnd={onTouchEnd}
+              onTouchEnd={() => onTouchEnd(category.id, 'inc')}
               onMouseDown={() => onMouseDown(category.id, 'inc')}
-              onMouseUp={onMouseUp}
-              onMouseLeave={onMouseUp}
+              onMouseUp={() => onMouseUp(category.id, 'inc')}
+              onMouseLeave={() => onMouseUp(category.id, 'inc')}
               className={`w-12 h-12 flex items-center justify-center text-lg font-bold rounded-full focus:outline-none transition-colors duration-150 ${
                 activeButton === `${category.id}-inc` 
                   ? (isLongPress 
@@ -881,7 +479,7 @@ const NutriTrack = () => {
           </div>
         </div>
         
-        {/* BODY - quarter-circle units and weekly balance indicator */}
+        {/* BODY - half-circle units and weekly balance indicator */}
         <div className="flex justify-between items-center">
           <div className="flex flex-wrap overflow-x-auto py-2 hide-scrollbar">
             {renderHalfCircles(category.id, category, { [category.id]: unitCount, dayType })}
@@ -942,7 +540,7 @@ const NutriTrack = () => {
             activeButton={activeButton}
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
-            onClick={handleClick}
+            onClick={() => {}} // No longer used
             onDayTypeChange={(newType) => handleDayTypeChange(newType, editingDay)}
           />
         ) : showHistory ? (
@@ -960,11 +558,10 @@ const NutriTrack = () => {
               unitCount={unitCounts[category.id]}
               dayType={unitCounts.dayType || 'normal'}
               activeButton={activeButton}
-              onTouchStart={(id, action) => handleTouchStart(id, action)}
+              onTouchStart={handleTouchStart}
               onTouchEnd={handleTouchEnd}
-              onMouseDown={(id, action) => handleMouseDown(id, action)}
+              onMouseDown={handleMouseDown}
               onMouseUp={handleMouseUp}
-              onClick={(id, action) => handleClick(id, action)}
               weeklyBalance={weeklyBalance} // Pass weekly balance data
             />
           ))
