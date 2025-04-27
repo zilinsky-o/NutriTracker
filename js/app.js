@@ -154,8 +154,8 @@ const NutriTrack = () => {
     }
   };
   
-  const incrementUnit = (categoryId, day = null) => {
-    const increment = isLongPress ? UNIT_FINE_INCREMENT : UNIT_INCREMENT;
+  const incrementUnit = (categoryId, day = null, useFinePrecision = false) => {
+    const increment = useFinePrecision ? UNIT_FINE_INCREMENT : UNIT_INCREMENT;
     
     if (day) {
       // We're editing a historical day
@@ -166,8 +166,8 @@ const NutriTrack = () => {
     }
   };
 
-  const decrementUnit = (categoryId, day = null) => {
-    const increment = isLongPress ? UNIT_FINE_INCREMENT : UNIT_INCREMENT;
+  const decrementUnit = (categoryId, day = null, useFinePrecision = false) => {
+    const increment = useFinePrecision ? UNIT_FINE_INCREMENT : UNIT_INCREMENT;
     
     if (day) {
       // We're editing a historical day
@@ -195,15 +195,18 @@ const NutriTrack = () => {
     const timer = setTimeout(() => {
       console.log('Long press detected');
       setIsLongPress(true); // Switch to long press mode
+      
+      // We don't do anything here - just mark as long press
+      // The action will happen on touch end
     }, LONG_PRESS_DURATION);
     
     setLongPressTimer(timer);
     
     // Perform initial action with regular increment
     if (action === 'inc') {
-      incrementUnit(id, day);
+      incrementUnit(id, day, false); // Use standard increment
     } else if (action === 'dec') {
-      decrementUnit(id, day);
+      decrementUnit(id, day, false); // Use standard increment
     }
   };
   
@@ -223,15 +226,18 @@ const NutriTrack = () => {
     const timer = setTimeout(() => {
       console.log('Long mouse press detected');
       setIsLongPress(true); // Switch to long press mode
+      
+      // We don't do anything here - just mark as long press
+      // The action will happen on mouse up
     }, LONG_PRESS_DURATION);
     
     setLongPressTimer(timer);
     
     // Perform initial action with regular increment
     if (action === 'inc') {
-      incrementUnit(id, day);
+      incrementUnit(id, day, false); // Use standard increment
     } else if (action === 'dec') {
-      decrementUnit(id, day);
+      decrementUnit(id, day, false); // Use standard increment
     }
   };
   
@@ -239,15 +245,11 @@ const NutriTrack = () => {
   const handleButtonRelease = (id, action, day = null) => {
     // If long press was active, perform the fine-grained adjustment
     if (isLongPress) {
-      console.log('Applying fine adjustment');
+      console.log('Applying fine adjustment on release');
       if (action === 'inc') {
-        const currentValue = day ? day[id] : unitCounts[id];
-        updateUnitCount(id, currentValue + UNIT_FINE_INCREMENT, day);
+        incrementUnit(id, day, true); // Use fine increment
       } else if (action === 'dec') {
-        const currentValue = day ? day[id] : unitCounts[id];
-        if (currentValue >= UNIT_FINE_INCREMENT) {
-          updateUnitCount(id, currentValue - UNIT_FINE_INCREMENT, day);
-        }
+        decrementUnit(id, day, true); // Use fine increment
       }
     }
     
