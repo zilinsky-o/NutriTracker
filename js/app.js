@@ -265,7 +265,7 @@ const renderHalfCircles = (categoryId, category, dayData) => {
   return [...pairedUnits, ...pairedExcess];
 };
 
-// Weekly Balance Indicator component (normally in WeeklyBalanceIndicator.js)
+// The Weekly Balance Indicator component
 const WeeklyBalanceIndicator = ({ category, balance }) => {
   // Skip rendering if balance is null/undefined (not enough data)
   if (balance === null || balance === undefined) {
@@ -274,7 +274,7 @@ const WeeklyBalanceIndicator = ({ category, balance }) => {
   
   // Determine status based on balance
   const getStatus = (diff) => {
-    if (Math.abs(diff) <= BALANCE_THRESHOLD) {
+    if (Math.abs(diff) < 0.01) { // Only consider exact 0 as on-track
       return WEEKLY_BALANCE_STATUS.ON_TRACK;
     }
     return diff > 0 ? WEEKLY_BALANCE_STATUS.EXCESS : WEEKLY_BALANCE_STATUS.UNDER;
@@ -322,11 +322,9 @@ const WeeklyBalanceIndicator = ({ category, balance }) => {
     }
   };
   
-  // Format the difference value for display
+// Format the difference value for display
   const formatDifference = (diff) => {
-    if (Math.abs(diff) <= BALANCE_THRESHOLD) return '';
-    
-    // Round to nearest 0.5 to match the app's unit increment
+    // Always show the value, even if it's 0 or within threshold
     const rounded = Math.round(diff * 2) / 2;
     return rounded > 0 ? `+${rounded.toFixed(1)}` : rounded.toFixed(1);
   };
