@@ -44,6 +44,20 @@ const getWeekEndDate = (dateStr) => {
   return saturday.toISOString().split('T')[0];
 };
 
+// Generate dates for complete history (past X days)
+const generateDateArray = (daysCount) => {
+  const dates = [];
+  const today = new Date();
+  
+  for (let i = 0; i < daysCount; i++) {
+    const date = new Date(today);
+    date.setDate(today.getDate() - i);
+    dates.push(date.toISOString().split('T')[0]);
+  }
+  
+  return dates;
+};
+
 // Format date range for display
 const formatWeekDateRange = (startDate, endDate) => {
   const start = new Date(startDate);
@@ -63,6 +77,35 @@ const formatWeekDateRange = (startDate, endDate) => {
   return `${startMonth} ${startDay} - ${endMonth} ${endDay}`;
 };
 
+// Generate a complete history with entries for all past days within limit
+const ensureCompleteHistory = (existingHistory, limit = MAX_HISTORY_DAYS) => {
+  // Generate array of dates for the past X days
+  const requiredDates = generateDateArray(limit);
+  
+  // Create a map of existing dates for quick lookup
+  const existingDatesMap = {};
+  existingHistory.forEach(day => {
+    existingDatesMap[day.date] = day;
+  });
+  
+  // Create a complete history array with all required dates
+  const completeHistory = requiredDates.map(date => {
+    // If we already have an entry for this date, use it
+    if (existingDatesMap[date]) {
+      return existingDatesMap[date];
+    }
+    
+    // Otherwise, create a new default entry for this date
+    return {
+      ...getDefaultDayState(),
+      date: date,
+      hasBeenEdited: false // Flag to track if this auto-generated entry has been edited
+    };
+  });
+  
+  return completeHistory;
+};
+
 // Calculate the weekly balance for all categories
 const calculateWeeklyBalance = (history, today = new Date().toISOString().split('T')[0]) => {
   // Get current week's start and end dates
@@ -72,8 +115,25 @@ const calculateWeeklyBalance = (history, today = new Date().toISOString().split(
   console.log(`Calculating weekly balance: ${weekStart} to ${weekEnd}`);
   
   // Filter history to only include days in current week BEFORE today
+  // Also exclude days that haven't been edited and have all zeros
   const weekHistory = history.filter(day => {
-    return day.date >= weekStart && day.date <= weekEnd && day.date < today;
+    // Must be in current week and before today
+    if (day.date >= weekStart && day.date <= weekEnd && day.date < today) {
+      // If day has been edited, include it
+      if (day.hasBeenEdited) {
+        return true;
+      }
+      
+      // If day hasn't been edited, check if all values are zero
+      const hasNonZeroValues = FOOD_CATEGORIES.some(category => {
+        return (day[category.id] || 0) > 0;
+      });
+      
+      // Include the day if it has any non-zero values
+      return hasNonZeroValues;
+    }
+    
+    return false;
   });
   
   // Initialize results
@@ -382,7 +442,20 @@ const NutriTrack = () => {
   console.log('Initializing NutriTrack component...');
   
   // Set up state with history
-  const [appState, setAppState] = React.useState(loadFromCookie());
+  const [appState, setAppState] = React.useState(() => {
+    // Load initial state from cookie
+    const loadedState = loadFromCookie();
+    
+    // Ensure history has entries for all past days within the limit
+    const completeHistory = ensureCompleteHistory(loadedState.history);
+    
+    // Return the updated state with complete history
+    return {
+      ...loadedState,
+      history: completeHistory
+    };
+  });
+  
   const [sliderValue, setSliderValue] = React.useState(0);
   const [isTouchActive, setIsTouchActive] = React.useState(false);
   const [activeButton, setActiveButton] = React.useState(null);
@@ -424,14 +497,33 @@ const NutriTrack = () => {
     if (unitCounts.date !== today) {
       const newDay = {
         ...getDefaultDayState(),
-        dayType: unitCounts.dayType || 'normal' // Keep the last selected day type
+        dayType: unitCounts.dayType || 'normal', // Keep the last selected day type
+        hasBeenEdited: true // Mark as edited since user is explicitly using it
       };
       
       setAppState(prevState => {
+        // Ensure we have a complete history first
+        const completeHistory = ensureCompleteHistory(prevState.history);
+        
+        // Find today in history if it exists
+        const todayIndex = completeHistory.findIndex(day => day.date === today);
+        
+        // Create new history array with today's entry updated
+        const newHistory = [...completeHistory];
+        if (todayIndex >= 0) {
+          newHistory[todayIndex] = { ...newDay };
+        } else {
+          newHistory.unshift({ ...newDay });
+        }
+        
+        // Trim history to max days
+        const trimmedHistory = newHistory.slice(0, MAX_HISTORY_DAYS);
+        
         const newState = {
           currentDay: newDay,
-          history: [newDay, ...prevState.history.slice(0, MAX_HISTORY_DAYS - 1)] // Keep limited days
+          history: trimmedHistory
         };
+        
         saveToCookie(newState);
         return newState;
       });
@@ -462,7 +554,8 @@ const NutriTrack = () => {
       // We're editing a specific history day
       setEditingDay(prevDay => ({
         ...prevDay,
-        [categoryId]: newValue
+        [categoryId]: newValue,
+        hasBeenEdited: true // Mark the day as edited
       }));
     } else {
       // We're updating the current day
@@ -475,11 +568,19 @@ const NutriTrack = () => {
         const newHistory = [...prevState.history];
         
         // Create new current day object
-        const newCurrentDay = { ...prevState.currentDay, [categoryId]: newValue };
+        const newCurrentDay = { 
+          ...prevState.currentDay, 
+          [categoryId]: newValue,
+          hasBeenEdited: true // Mark as edited
+        };
         
         // Update today's history entry if it exists
         if (historyIndex >= 0) {
-          newHistory[historyIndex] = { ...newHistory[historyIndex], [categoryId]: newValue };
+          newHistory[historyIndex] = { 
+            ...newHistory[historyIndex], 
+            [categoryId]: newValue,
+            hasBeenEdited: true // Mark as edited
+          };
         } else {
           // Add today to history if not found (shouldn't happen, but just in case)
           newHistory.unshift({ ...newCurrentDay });
@@ -525,13 +626,18 @@ const NutriTrack = () => {
       // We're editing a historical day
       setEditingDay(prevDay => ({
         ...prevDay,
-        dayType: newDayType
+        dayType: newDayType,
+        hasBeenEdited: true // Mark as edited when day type changes
       }));
     } else {
       // We're updating the current day
       setAppState(prevState => {
         // Update current day type
-        const newCurrentDay = { ...prevState.currentDay, dayType: newDayType };
+        const newCurrentDay = { 
+          ...prevState.currentDay, 
+          dayType: newDayType,
+          hasBeenEdited: true // Mark as edited
+        };
         
         // Update history for today
         const today = newCurrentDay.date;
@@ -539,7 +645,11 @@ const NutriTrack = () => {
         const newHistory = [...prevState.history];
         
         if (historyIndex >= 0) {
-          newHistory[historyIndex] = { ...newHistory[historyIndex], dayType: newDayType };
+          newHistory[historyIndex] = { 
+            ...newHistory[historyIndex], 
+            dayType: newDayType,
+            hasBeenEdited: true // Mark as edited
+          };
         }
         
         const newState = {
@@ -561,7 +671,8 @@ const NutriTrack = () => {
       setAppState(prevState => {
         const newCurrentDay = {
           ...getDefaultDayState(),
-          dayType: prevState.currentDay.dayType // Preserve day type
+          dayType: prevState.currentDay.dayType, // Preserve day type
+          hasBeenEdited: true // Mark as edited even when resetting
         };
         
         // Update history for current day
@@ -615,8 +726,33 @@ const NutriTrack = () => {
   };
 
   const toggleHistory = () => {
-    setShowHistory(!showHistory);
-    // Exit editing mode when toggling history
+    // If we're already showing history, just toggle back
+    if (showHistory) {
+      setShowHistory(false);
+      setEditingDay(null);
+      return;
+    }
+    
+    // If we're about to show history, ensure it's complete first
+    setAppState(prevState => {
+      const completeHistory = ensureCompleteHistory(prevState.history);
+      
+      // Only update state if history changed
+      if (completeHistory.length !== prevState.history.length) {
+        const newState = {
+          ...prevState,
+          history: completeHistory
+        };
+        
+        saveToCookie(newState);
+        return newState;
+      }
+      
+      return prevState;
+    });
+    
+    // Now show history
+    setShowHistory(true);
     setEditingDay(null);
   };
   
@@ -634,14 +770,21 @@ const NutriTrack = () => {
       if (dayIndex >= 0) {
         // Create new history array with updated day
         const newHistory = [...prevState.history];
-        newHistory[dayIndex] = {...editingDay};
+        
+        // Ensure the day is marked as edited
+        const updatedDay = {
+          ...editingDay,
+          hasBeenEdited: true
+        };
+        
+        newHistory[dayIndex] = updatedDay;
         
         // If we're editing today, also update currentDay
         const today = new Date().toISOString().split('T')[0];
         let newCurrentDay = prevState.currentDay;
         
         if (editingDay.date === today) {
-          newCurrentDay = {...editingDay};
+          newCurrentDay = {...updatedDay};
         }
         
         const newState = {
@@ -669,6 +812,13 @@ const NutriTrack = () => {
   
   const toggleDarkMode = () => {
     setIsDarkMode(!isDarkMode);
+  };
+
+  // Helper to check if a day has been edited or has non-zero values
+  const isActiveDay = (day) => {
+    if (day.hasBeenEdited) return true;
+    
+    return FOOD_CATEGORIES.some(category => (day[category.id] || 0) > 0);
   };
 
   // Modified FoodCategory for weekly balance
@@ -809,6 +959,7 @@ const NutriTrack = () => {
           <HistoryView 
             history={appState.history} 
             onEditDay={startEditingDay}
+            isActiveDay={isActiveDay}
           />
         ) : (
           // Today's tracking with weekly balance indicators
