@@ -164,9 +164,17 @@ MIT
 
 ## Version
 
-Current Version: 1.7.0
+Current Version: 1.9.0
 
 ## Changelog
+
+### v1.9.0
+
+Added complete history tracking with automatic entries for all past days
+Users can now retroactively add consumption data for any day within the history limit
+Enhanced history view to visually distinguish days with recorded data
+Improved weekly balance calculation to ignore unedited days
+Added helpful indicators for days without data in history view
 
 ### v1.8.3
 
