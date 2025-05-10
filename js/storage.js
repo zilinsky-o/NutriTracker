@@ -71,6 +71,20 @@ const loadFromCookie = () => {
                 saveToCookie(savedState);
               }
               
+              // Add hasBeenEdited flag to each history item if missing
+              if (!savedState.currentDay.hasOwnProperty('hasBeenEdited')) {
+                // For existing data, assume all entries have been edited
+                savedState.currentDay.hasBeenEdited = true;
+                
+                savedState.history = savedState.history.map(day => ({ 
+                  ...day, 
+                  hasBeenEdited: true
+                }));
+                
+                // Save the updated data
+                saveToCookie(savedState);
+              }
+              
               return savedState;
             }
             
@@ -80,13 +94,15 @@ const loadFromCookie = () => {
               currentDay: {
                 date: today,
                 dayType: 'normal',
-                schemaVersion: DATA_SCHEMA_VERSION
+                schemaVersion: DATA_SCHEMA_VERSION,
+                hasBeenEdited: true
               },
               history: [
                 {
                   date: today,
                   dayType: 'normal',
-                  schemaVersion: DATA_SCHEMA_VERSION
+                  schemaVersion: DATA_SCHEMA_VERSION,
+                  hasBeenEdited: true
                 }
               ]
             };
@@ -115,6 +131,10 @@ const loadFromCookie = () => {
   
   // Return default state if no valid saved state
   const defaultDay = getDefaultDayState();
+  
+  // Mark the current day as edited since it's being created explicitly
+  defaultDay.hasBeenEdited = true;
+  
   return {
     currentDay: defaultDay,
     history: [{ ...defaultDay }]
