@@ -118,10 +118,10 @@ const parseUrlParameters = () => {
 const FOOD_CATEGORIES = parseUrlParameters();
 
 // App version
-const APP_VERSION = '1.8.3';
+const APP_VERSION = '1.9.0';
 
 // Current data schema version for migrations
-const DATA_SCHEMA_VERSION = 2;
+const DATA_SCHEMA_VERSION = 3;
 
 // Increment size for unit steps
 const UNIT_INCREMENT = 0.5;
@@ -137,5 +137,6 @@ const getDefaultDayState = () => ({
   vegetables: 0,
   dayType: 'normal', // Default day type
   date: new Date().toISOString().split('T')[0], // Store current date in YYYY-MM-DD format
-  schemaVersion: DATA_SCHEMA_VERSION // Track schema version for migrations
+  schemaVersion: DATA_SCHEMA_VERSION, // Track schema version for migrations
+  hasBeenEdited: false // Flag to track if this day has been explicitly edited
 });
