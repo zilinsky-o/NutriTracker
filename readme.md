@@ -4,23 +4,25 @@ A mobile-first web application for tracking daily food consumption by category.
 
 ## Overview
 
-NutriTrack helps users maintain dietary awareness through visual unit tracking with half-circles. The app allows for tracking consumption across four food categories (Carbs, Proteins, Fats, Vegetables) with maximum unit limits that adapt based on the type of day.
+NutriTrack helps users maintain dietary awareness through visual unit tracking with half-circles or quarter-pills. The app allows for tracking consumption across four food categories (Carbs, Proteins, Fats, Vegetables) with maximum unit limits that adapt based on the type of day.
 
 ![NutriTrack Screenshot](https://via.placeholder.com/350x600?text=NutriTrack+App)
 
 ## Features
 
-- Visual half-circle representation of consumed units
-- Precise tracking with 0.5 unit increments
+- Visual representation of consumed units (half-circles or quarter-pills)
+- Precise tracking with 0.5 or 0.25 unit increments (configurable)
 - Simple increment/decrement controls for each category
 - Automatic daily reset at midnight
 - Three day types with different nutritional limits:
   - Normal Day (🍃): Standard nutritional limits
   - Sport Day (🚴): Higher protein and carb limits for workout days
   - Free Meal Day (🍰): No maximum limits
-- 14-day history tracking
-- Edit previous days' entries
+- 14-day history tracking with complete calendar coverage
+- Edit any day within the history limit, even days you missed
+- Weekly balance tracking showing over/under consumption
 - Customizable food category limits via URL parameters
+- Configurable increment precision via URL parameters
 - Dark mode support with system preference detection
 - Mobile-optimized responsive design
 - Color-coded feedback (blue at max, red for excess)
@@ -66,7 +68,7 @@ nutritrack/
    - 🍃 Normal Day: Regular nutritional limits
    - 🚴 Sport Day: Higher protein and carb allowances
    - 🍰 Free Meal Day: No maximum limits
-4. Use the `+` and `-` buttons to track your consumption for each category (each click adds/subtracts 0.5 units)
+4. Use the `+` and `-` buttons to track your consumption for each category (each click adds/subtracts by the configured increment)
 5. The app automatically saves your progress in browser cookies
 6. View your 14-day history by clicking the "Show History" button
 7. Edit past days by clicking the pencil icon next to each day in history view
@@ -102,11 +104,25 @@ NutriTrack includes a dark mode feature for comfortable usage in low-light condi
 
 ## URL Parameters
 
-NutriTrack supports customizing the food category limits through URL parameters. This is useful for personalized nutrition plans or sharing specific configurations.
+NutriTrack supports customizing the application through URL parameters:
 
-### Parameter Format
+### Unit Increment Parameter
 
-Use the `u` parameter with an ultra-compact format:
+Use the `i` parameter to set the increment step size:
+
+```
+?i=25
+```
+
+This sets the increment value to 0.25 units (instead of the default 0.5 units). This affects:
+- The step size when using the +/- buttons
+- The visual representation of units (quarter-pills instead of half-circles)
+- Number formatting throughout the app
+- Weekly balance calculation granularity
+
+### Food Category Customization
+
+Use the `u` parameter with an ultra-compact format to customize the food category limits:
 
 ```
 ?u=25-35-10-25
@@ -130,11 +146,39 @@ To set different values for Sport Day:
 
 The first four values are for Normal Day, the next four are for Sport Day.
 
+### Combining Parameters
+
+You can combine URL parameters to customize both increment size and food category limits:
+
+```
+?u=25-35-10-25&i=25
+```
+
+This sets both custom food category limits and 0.25 unit increments.
+
 ### Notes
 
-- If only 4 values are provided, they will be used for both Normal and Sport days
+- If only 4 values are provided in the `u` parameter, they will be used for both Normal and Sport days
 - Free Meal Day always has unlimited units, but will display empty unit indicators based on the Normal Day values
-- If no URL parameter is provided, default configuration is used
+- If no URL parameters are provided, default configuration is used
+- URL parameters do not persist between sessions
+
+## History and Weekly Balance
+
+### History Tracking
+
+The app maintains a complete 14-day history, allowing you to:
+- See all days within the history limit, even if you didn't use the app on those days
+- Retroactively update entries for days you missed
+- Visually distinguish between days with and without data
+
+### Weekly Balance
+
+Weekly balance indicators show how your consumption compares to your goals:
+- Only considers days prior to today (not counting today's consumption)
+- Shows surplus or deficit for each food category
+- Only appears when there is a meaningful difference
+- Takes into account your day types (Normal/Sport/Free)
 
 ## Development
 
@@ -164,20 +208,25 @@ MIT
 
 ## Version
 
-Current Version: 1.9.0
+Current Version: 1.10.0
 
 ## Changelog
 
-### v1.9.0
+### v1.10.0
+- Added support for 0.25 unit increments via URL parameter (?i=25)
+- Implemented quarter-pill visual indicators for 0.25 increment mode
+- Enhanced number formatting to show appropriate decimal places (2.25, 2.5, 2.75)
+- Updated weekly balance indicators to support 0.25 increment granularity
+- Improved unit formatting consistency throughout the app
 
-Added complete history tracking with automatic entries for all past days
-Users can now retroactively add consumption data for any day within the history limit
-Enhanced history view to visually distinguish days with recorded data
-Improved weekly balance calculation to ignore unedited days
-Added helpful indicators for days without data in history view
+### v1.9.0
+- Added complete history tracking with automatic entries for all past days
+- Users can now retroactively add consumption data for any day within the history limit
+- Enhanced history view to visually distinguish days with recorded data
+- Improved weekly balance calculation to ignore unedited days
+- Added helpful indicators for days without data in history view
 
 ### v1.8.3
-
 - Modified weekly balance tracking to exclude the current day from calculations
 - Enhanced weekly balance indicators to only show meaningful surpluses or deficits
 - Updated tooltips to clarify that calculations exclude today's consumption
@@ -185,15 +234,13 @@ Added helpful indicators for days without data in history view
 - Fixed bug in date range calculation for weekly summary
 
 ### v1.8.2
-
 - Added weekly balance tracking for all food categories
 - Implemented visual indicators showing over/under consumption for the week
 - Added tooltips with detailed information about weekly consumption patterns
 - Improved UI for better clarity on consumption tracking
 
 ### v1.8.1
-
-- Fixed issues with dark mode compatibility
+- Fixed issues with dark mode compatibility 
 - Enhanced accessibility for screen readers
 - Improved touch controls for mobile devices
 - Fixed minor visual glitches in history view
