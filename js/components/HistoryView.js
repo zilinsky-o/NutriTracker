@@ -33,13 +33,33 @@ const getDayTypeName = (dayType) => {
 const formatUnitNumber = (value) => {
   if (value === undefined || value === null) return '0';
   
+  // Convert to number to handle potential string inputs
+  const num = Number(value);
+  
   // If it's a whole number, don't show the decimal
-  if (value === Math.floor(value)) {
-    return value.toString();
+  if (Math.floor(num) === num) {
+    return num.toString();
   }
   
-  // Otherwise, show with 1 decimal place
-  return value.toFixed(1);
+  // If we're in 0.25 increment mode
+  if (UNIT_INCREMENT === 0.25) {
+    // Special formatting for 0.25 increments
+    // For numbers like 2.25, 2.5, 2.75, etc.
+    
+    // Check if the decimal part is 0.25, 0.5, or 0.75
+    const decimal = Math.round((num - Math.floor(num)) * 100) / 100;
+    
+    if (decimal === 0.25 || decimal === 0.75) {
+      // Return with two decimal places for 0.25/0.75
+      return num.toFixed(2);
+    } else if (decimal === 0.5) {
+      // Return with one decimal place for 0.5
+      return num.toFixed(1);
+    }
+  }
+  
+  // For 0.5 increment mode or other values, show with 1 decimal place
+  return num.toFixed(1);
 };
 
 // History View component
@@ -95,7 +115,7 @@ const HistoryView = ({ history, onEditDay, isActiveDay }) => {
                   <div key={`${day.date}-${category.id}`} className="flex items-center">
                     <div className="w-24 text-sm text-gray-600 dark:text-gray-400">{category.name}</div>
                     <div className="flex-grow flex flex-wrap">
-                      {renderHalfCircles(category.id, category, day)}
+                      {renderUnitIndicators(category.id, category, day)}
                     </div>
                     <div className="w-16 text-right text-sm font-medium" style={{ color: category.color }}>
                       {formatUnitNumber(day[category.id] || 0)}{isFreeMealDay ? '' : `/${formatUnitNumber(maxUnits)}`}

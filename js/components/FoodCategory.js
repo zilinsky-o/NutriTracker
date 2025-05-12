@@ -1,7 +1,4 @@
-// Modify js/components/FoodCategory.js to include weekly balance indicator
-// Make sure to add the WeeklyBalanceIndicator component import at the top of the file
-
-// Food Category component - updated version with weekly balance indicator
+// Food Category component with unit indicator rendering
 const FoodCategory = ({ 
   category, 
   unitCount, 
@@ -9,8 +6,7 @@ const FoodCategory = ({
   activeButton, 
   onTouchStart, 
   onTouchEnd, 
-  onClick,
-  weeklyBalance = null  // Add this prop
+  onClick
 }) => {
   const maxUnits = category.maxUnits[dayType];
   const isFreeMealDay = dayType === 'free';
@@ -25,9 +21,6 @@ const FoodCategory = ({
   } else if (isMaxed) {
     labelColor = 'text-blue-500';
   }
-  
-  // Get weekly balance for this category
-  const categoryBalance = weeklyBalance?.categories?.[category.id]?.difference || null;
   
   return (
     <div className="mb-4 bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm border border-gray-100 dark:border-gray-700 transition-colors">
@@ -70,19 +63,11 @@ const FoodCategory = ({
         </div>
       </div>
       
-      {/* BODY - half circles and weekly balance indicator */}
+      {/* BODY - unit indicators */}
       <div className="flex justify-between items-center">
         <div className="flex flex-wrap py-2 hide-scrollbar">
-          {renderHalfCircles(category.id, category, { [category.id]: unitCount, dayType })}
+          {renderUnitIndicators(category.id, category, { [category.id]: unitCount, dayType })}
         </div>
-        
-        {/* Show weekly balance indicator if data is available */}
-        {weeklyBalance && categoryBalance !== null && (
-          <WeeklyBalanceIndicator 
-            category={category} 
-            balance={categoryBalance} 
-          />
-        )}
       </div>
     </div>
   );

@@ -173,7 +173,7 @@ const calculateWeeklyBalance = (history, today = new Date().toISOString().split(
     const difference = actualConsumption - plannedConsumption;
     
     // Only store results if there's a meaningful difference
-    // (only non-zero differences will be stored)
+    // Use a small threshold to account for floating point imprecision
     if (Math.abs(difference) > 0.01) {
       results.categories[categoryId] = {
         actual: actualConsumption,
@@ -186,19 +186,44 @@ const calculateWeeklyBalance = (history, today = new Date().toISOString().split(
   return results;
 };
 
-// Format unit number for display (copied from FoodCategory.js)
+// Format unit number for display
 const formatUnitNumber = (value) => {
+  if (value === undefined || value === null) return '0';
+  
+  // Convert to number to handle potential string inputs
+  const num = Number(value);
+  
   // If it's a whole number, don't show the decimal
-  if (value === Math.floor(value)) {
-    return value.toString();
+  if (Math.floor(num) === num) {
+    return num.toString();
   }
   
-  // Otherwise, show with 1 decimal place
-  return value.toFixed(1);
+  // If we're in 0.25 increment mode
+  if (UNIT_INCREMENT === 0.25) {
+    // Special formatting for 0.25 increments
+    // For numbers like 2.25, 2.5, 2.75, etc.
+    
+    // Check if the decimal part is 0.25, 0.5, or 0.75
+    const decimal = Math.round((num - Math.floor(num)) * 100) / 100;
+    
+    if (decimal === 0.25 || decimal === 0.75) {
+      // Return with two decimal places for 0.25/0.75
+      return num.toFixed(2);
+    } else if (decimal === 0.5) {
+      // Return with one decimal place for 0.5
+      return num.toFixed(1);
+    }
+  }
+  
+  // For 0.5 increment mode or other values, show with 1 decimal place
+  return num.toFixed(1);
 };
 
-// Render half circles for a food category (copied from FoodCategory.js)
-const renderHalfCircles = (categoryId, category, dayData) => {
+// This is the updated renderUnitIndicators function to be included in app.js
+// This function handles the visual representation of the units with improved quarter-pill styling
+
+// Render unit indicators for a food category (half-circles or quarter-pills)
+const renderUnitIndicators = (categoryId, category, dayData) => {
   const currentUnits = dayData[categoryId] || 0;
   const dayType = dayData.dayType || 'normal';
   const maxUnits = category.maxUnits[dayType];
@@ -214,120 +239,237 @@ const renderHalfCircles = (categoryId, category, dayData) => {
   const fullUnits = isFreeMealDay ? currentUnits : (isExceeded ? maxUnits : currentUnits);
   const excessUnits = isFreeMealDay ? 0 : (isExceeded ? currentUnits - maxUnits : 0);
   
-  // For free days, adapt the number of circles shown
+  // For free days, adapt the number of indicators shown
   // We want to show at least the normal day max (for reference) plus any excess
   const displayMax = isFreeMealDay 
     ? Math.max(category.maxUnits.normal, Math.ceil(currentUnits))
     : maxUnits;
   
-  // Each full unit is represented by 2 half-circles
-  const totalHalfCircles = displayMax * 2;
-  const fullHalfCircles = fullUnits * 2;
+  // Check if we're in 0.25 increment mode
+  const isQuarterMode = UNIT_INCREMENT === 0.25;
   
-  // Handle half units by calculating how many full and half circles to show
-  const fullCirclesToShow = Math.floor(fullHalfCircles / 2);
-  const hasHalfCircle = fullHalfCircles % 2 === 1;
+  // Each full unit is represented by 4 quarter-indicators in 0.25 mode or 2 half-indicators in 0.5 mode
+  const totalIndicators = isQuarterMode ? displayMax * 4 : displayMax * 2;
+  const fullIndicators = isQuarterMode ? fullUnits * 4 : fullUnits * 2;
   
-  // Create empty containers for all possible half circles
-  const units = Array.from({ length: totalHalfCircles }, (_, index) => {
-    const isLeft = index % 2 === 0;
-    const pairIndex = Math.floor(index / 2);
-    
-    // Determine if this half-circle should be filled
-    let isFilled;
-    if (fullCirclesToShow > pairIndex) {
-      // Both halves of this circle are filled
-      isFilled = true;
-    } else if (fullCirclesToShow === pairIndex && hasHalfCircle && isLeft) {
-      // Only the left half of this circle is filled (for half units)
-      isFilled = true;
+  // Create empty containers for all possible indicators
+  const units = Array.from({ length: totalIndicators }, (_, index) => {
+    if (isQuarterMode) {
+      // In 0.25 mode, we use quarter-pills
+      const quarterPosition = index % 4; // 0 = left cap, 1 = first segment, 2 = second segment, 3 = right cap
+      const unitIndex = Math.floor(index / 4);
+      
+      // Determine if this quarter should be filled
+      const isFilled = index < fullIndicators;
+      
+      // Create the quarter element with appropriate styling
+      let element;
+      if (quarterPosition === 0) {
+        // Left cap
+        element = (
+          <div 
+            key={`quarter-${index}`} 
+            style={{
+              width: '10px',
+              height: '20px',
+              backgroundColor: isFilled ? category.color : category.bgColor,
+              borderRadius: '10px 0 0 10px',
+              display: 'inline-block'
+            }}
+          />
+        );
+      } else if (quarterPosition === 3) {
+        // Right cap
+        element = (
+          <div 
+            key={`quarter-${index}`} 
+            style={{
+              width: '10px',
+              height: '20px',
+              backgroundColor: isFilled ? category.color : category.bgColor,
+              borderRadius: '0 10px 10px 0',
+              display: 'inline-block'
+            }}
+          />
+        );
+      } else {
+        // Middle segments
+        element = (
+          <div 
+            key={`quarter-${index}`} 
+            style={{
+              width: '10px',
+              height: '20px',
+              backgroundColor: isFilled ? category.color : category.bgColor,
+              display: 'inline-block'
+            }}
+          />
+        );
+      }
+      return element;
+      
     } else {
-      // This half-circle is not filled
-      isFilled = false;
+      // In 0.5 mode, we use half-circles (original behavior)
+      const isLeft = index % 2 === 0;
+      const pairIndex = Math.floor(index / 2);
+      
+      // Determine if this half-circle should be filled
+      const isFilled = index < fullIndicators;
+      
+      return (
+        <div 
+          key={`half-${index}`} 
+          className={`w-5 h-5 ${isLeft ? 'rounded-l-full' : 'rounded-r-full'}`}
+          style={{ 
+            backgroundColor: isFilled ? category.color : category.bgColor,
+            margin: '0 0px'
+          }}
+        />
+      );
     }
-    
-    return (
-      <div 
-        key={`half-${index}`} 
-        className={`w-5 h-5 ${isLeft ? 'rounded-l-full' : 'rounded-r-full'}`}
-        style={{ 
-          backgroundColor: isFilled ? category.color : category.bgColor,
-          margin: '0 0px'
-        }}
-      />
-    );
   });
   
   // Handle excess units the same way
-  const excessHalfCircles = excessUnits * 2;
-  const excessFullCircles = Math.floor(excessHalfCircles / 2);
-  const hasExcessHalf = excessHalfCircles % 2 === 1;
+  const excessIndicators = isQuarterMode ? excessUnits * 4 : excessUnits * 2;
   
-  const excess = !isFreeMealDay ? Array.from({ length: excessHalfCircles }, (_, index) => {
-    const isLeft = index % 2 === 0;
-    const pairIndex = Math.floor(index / 2);
-    
-    let isExcessFilled = false;
-    if (excessFullCircles > pairIndex) {
-      isExcessFilled = true;
-    } else if (excessFullCircles === pairIndex && hasExcessHalf && isLeft) {
-      isExcessFilled = true;
+  const excess = !isFreeMealDay ? Array.from({ length: excessIndicators }, (_, index) => {
+    if (isQuarterMode) {
+      // In 0.25 mode, we use quarter-pills for excess
+      const quarterPosition = index % 4;
+      
+      // Create the excess quarter element with appropriate styling
+      let element;
+      if (quarterPosition === 0) {
+        // Left cap
+        element = (
+          <div 
+            key={`excess-quarter-${index}`} 
+            style={{
+              width: '10px',
+              height: '20px',
+              backgroundColor: '#FF3B30', // Red for excess
+              borderRadius: '10px 0 0 10px',
+              display: 'inline-block'
+            }}
+          />
+        );
+      } else if (quarterPosition === 3) {
+        // Right cap
+        element = (
+          <div 
+            key={`excess-quarter-${index}`} 
+            style={{
+              width: '10px',
+              height: '20px',
+              backgroundColor: '#FF3B30', // Red for excess
+              borderRadius: '0 10px 10px 0',
+              display: 'inline-block'
+            }}
+          />
+        );
+      } else {
+        // Middle segments
+        element = (
+          <div 
+            key={`excess-quarter-${index}`} 
+            style={{
+              width: '10px',
+              height: '20px',
+              backgroundColor: '#FF3B30', // Red for excess
+              display: 'inline-block'
+            }}
+          />
+        );
+      }
+      return element;
+      
+    } else {
+      // In 0.5 mode, we use half-circles for excess (original behavior)
+      const isLeft = index % 2 === 0;
+      
+      return (
+        <div 
+          key={`excess-half-${index}`} 
+          className={`w-5 h-5 ${isLeft ? 'rounded-l-full' : 'rounded-r-full'}`}
+          style={{ 
+            backgroundColor: '#FF3B30', // Red for excess
+            margin: '0 0px'
+          }}
+        />
+      );
     }
-    
-    return (
-      <div 
-        key={`excess-half-${index}`} 
-        className={`w-5 h-5 ${isLeft ? 'rounded-l-full' : 'rounded-r-full'}`}
-        style={{ 
-          backgroundColor: isExcessFilled ? '#FF3B30' : category.bgColor,
-          margin: '0 0px'
-        }}
-      />
-    );
   }) : [];
   
-  // Group the half-circles into pairs for better visual display
-  const pairedUnits = [];
-  for (let i = 0; i < units.length; i += 2) {
-    if (i + 1 < units.length) {
-      pairedUnits.push(
-        <div key={`pair-${i}`} className="flex" style={{ margin: '0 1px' }}>
-          {units[i]}
-          {units[i + 1]}
-        </div>
-      );
-    } else {
-      // Just in case there's an odd number
-      pairedUnits.push(
-        <div key={`pair-${i}`} className="flex" style={{ margin: '0 1px' }}>
-          {units[i]}
-        </div>
-      );
+  // Group the indicators into sets for better visual display
+  const groupedUnits = [];
+  
+  if (isQuarterMode) {
+    // Group quarters into pills for 0.25 mode
+    for (let i = 0; i < units.length; i += 4) {
+      const remainingUnits = Math.min(4, units.length - i);
+      if (remainingUnits > 0) {
+        const pill = (
+          <div key={`pill-${i}`} className="flex" style={{ margin: '0 1px' }}>
+            {units.slice(i, i + remainingUnits)}
+          </div>
+        );
+        groupedUnits.push(pill);
+      }
+    }
+    
+    // Group excess quarters into pills
+    for (let i = 0; i < excess.length; i += 4) {
+      const remainingUnits = Math.min(4, excess.length - i);
+      if (remainingUnits > 0) {
+        const pill = (
+          <div key={`excess-pill-${i}`} className="flex" style={{ margin: '0 1px' }}>
+            {excess.slice(i, i + remainingUnits)}
+          </div>
+        );
+        groupedUnits.push(pill);
+      }
+    }
+  } else {
+    // Group half-circles into circles for 0.5 mode (original behavior)
+    for (let i = 0; i < units.length; i += 2) {
+      if (i + 1 < units.length) {
+        groupedUnits.push(
+          <div key={`pair-${i}`} className="flex" style={{ margin: '0 1px' }}>
+            {units[i]}
+            {units[i + 1]}
+          </div>
+        );
+      } else {
+        // Just in case there's an odd number
+        groupedUnits.push(
+          <div key={`pair-${i}`} className="flex" style={{ margin: '0 1px' }}>
+            {units[i]}
+          </div>
+        );
+      }
+    }
+    
+    // Group excess half-circles
+    for (let i = 0; i < excess.length; i += 2) {
+      if (i + 1 < excess.length) {
+        groupedUnits.push(
+          <div key={`excess-pair-${i}`} className="flex" style={{ margin: '0 1px' }}>
+            {excess[i]}
+            {excess[i + 1]}
+          </div>
+        );
+      } else {
+        groupedUnits.push(
+          <div key={`excess-pair-${i}`} className="flex" style={{ margin: '0 1px' }}>
+            {excess[i]}
+          </div>
+        );
+      }
     }
   }
   
-  // Group excess half-circles the same way
-  const pairedExcess = [];
-  for (let i = 0; i < excess.length; i += 2) {
-    if (i + 1 < excess.length) {
-      pairedExcess.push(
-        <div key={`excess-pair-${i}`} className="flex" style={{ margin: '0 1px' }}>
-          {excess[i]}
-          {excess[i + 1]}
-        </div>
-      );
-    } else {
-      pairedExcess.push(
-        <div key={`excess-pair-${i}`} className="flex" style={{ margin: '0 1px' }}>
-          {excess[i]}
-        </div>
-      );
-    }
-  }
-  
-  return [...pairedUnits, ...pairedExcess];
+  return groupedUnits;
 };
-
 // The Weekly Balance Indicator component
 const WeeklyBalanceIndicator = ({ category, balance }) => {
   // Skip rendering if balance is null/undefined (not enough data)
@@ -387,18 +529,45 @@ const WeeklyBalanceIndicator = ({ category, balance }) => {
   
   // Format the difference value for display
   const formatDifference = (diff) => {
-    // Round to nearest 0.5 to match the app's unit increment
-    const rounded = Math.round(diff * 2) / 2;
-    return rounded > 0 ? `+${rounded.toFixed(1)}` : rounded.toFixed(1);
+    // If we're in 0.25 increment mode
+    if (UNIT_INCREMENT === 0.25) {
+      // Round to nearest 0.25 to match the app's unit increment
+      const rounded = Math.round(diff * 4) / 4;
+      
+      // Format the number appropriately
+      let formattedValue;
+      
+      // Check if it's a whole number
+      if (Math.floor(rounded) === rounded) {
+        formattedValue = rounded.toString();
+      } else {
+        // Check if the decimal part is 0.25, 0.5, or 0.75
+        const decimal = Math.round((rounded - Math.floor(rounded)) * 100) / 100;
+        
+        if (decimal === 0.25 || decimal === 0.75) {
+          formattedValue = rounded.toFixed(2);
+        } else if (decimal === 0.5) {
+          formattedValue = rounded.toFixed(1);
+        } else {
+          formattedValue = rounded.toString();
+        }
+      }
+      
+      return rounded > 0 ? `+${formattedValue}` : formattedValue;
+    } else {
+      // In 0.5 increment mode, keep original behavior
+      const rounded = Math.round(diff * 2) / 2;
+      return rounded > 0 ? `+${rounded.toFixed(1)}` : rounded.toFixed(1);
+    }
   };
   
   // Get tooltip text based on status
   const getTooltipText = (statusType, diff, categoryName) => {
     switch(statusType) {
       case WEEKLY_BALANCE_STATUS.EXCESS:
-        return `You're ${Math.abs(diff).toFixed(1)} units over on ${categoryName.toLowerCase()} this week (not counting today). Consider adjusting today's intake.`;
+        return `You're ${Math.abs(diff).toFixed(2)} units over on ${categoryName.toLowerCase()} this week (not counting today). Consider adjusting today's intake.`;
       case WEEKLY_BALANCE_STATUS.UNDER:
-        return `You're ${Math.abs(diff).toFixed(1)} units under on ${categoryName.toLowerCase()} this week (not counting today). Consider this when planning today's meals.`;
+        return `You're ${Math.abs(diff).toFixed(2)} units under on ${categoryName.toLowerCase()} this week (not counting today). Consider this when planning today's meals.`;
       case WEEKLY_BALANCE_STATUS.ON_TRACK:
         return `You're on track with ${categoryName.toLowerCase()} this week. Keep it up!`;
       default:
@@ -547,8 +716,8 @@ const NutriTrack = () => {
   const updateUnitCount = (categoryId, newValue, day = null) => {
     if (newValue < 0) return;
     
-    // Round to nearest half unit to avoid floating point issues
-    newValue = Math.round(newValue * 2) / 2;
+    // Round to nearest unit increment to avoid floating point issues
+    newValue = Math.round(newValue * (1 / UNIT_INCREMENT)) / (1 / UNIT_INCREMENT);
     
     if (day) {
       // We're editing a specific history day
@@ -890,10 +1059,10 @@ const NutriTrack = () => {
           </div>
         </div>
         
-        {/* BODY - half circles and weekly balance indicator */}
+        {/* BODY - unit indicators and weekly balance indicator */}
         <div className="flex justify-between items-center">
           <div className="flex flex-wrap py-2 hide-scrollbar">
-            {renderHalfCircles(category.id, category, { [category.id]: unitCount, dayType })}
+            {renderUnitIndicators(category.id, category, { [category.id]: unitCount, dayType })}
           </div>
           
           {/* Only show weekly balance indicator if there's a meaningful difference */}
@@ -996,6 +1165,9 @@ const NutriTrack = () => {
       
       <div className="text-center text-xs text-gray-400 dark:text-gray-500 mt-4">
         NutriTrack v{APP_VERSION}
+        {UNIT_INCREMENT === 0.25 && (
+          <span className="ml-1">(0.25 increment mode)</span>
+        )}
       </div>
     </div>
   );
