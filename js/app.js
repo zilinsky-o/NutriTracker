@@ -219,6 +219,9 @@ const formatUnitNumber = (value) => {
   return num.toFixed(1);
 };
 
+// This is the updated renderUnitIndicators function to be included in app.js
+// This function handles the visual representation of the units with improved quarter-pill styling
+
 // Render unit indicators for a food category (half-circles or quarter-pills)
 const renderUnitIndicators = (categoryId, category, dayData) => {
   const currentUnits = dayData[categoryId] || 0;
@@ -253,33 +256,57 @@ const renderUnitIndicators = (categoryId, category, dayData) => {
   const units = Array.from({ length: totalIndicators }, (_, index) => {
     if (isQuarterMode) {
       // In 0.25 mode, we use quarter-pills
-      const quarterPosition = index % 4; // 0 = left cap, 1 = first rect, 2 = second rect, 3 = right cap
+      const quarterPosition = index % 4; // 0 = left cap, 1 = first segment, 2 = second segment, 3 = right cap
       const unitIndex = Math.floor(index / 4);
       
       // Determine if this quarter should be filled
       const isFilled = index < fullIndicators;
       
-      // Determine the shape of this quarter
-      let borderRadius = '0';
+      // Create the quarter element with appropriate styling
+      let element;
       if (quarterPosition === 0) {
-        borderRadius = '999px 0 0 999px'; // Left cap
+        // Left cap
+        element = (
+          <div 
+            key={`quarter-${index}`} 
+            style={{
+              width: '10px',
+              height: '20px',
+              backgroundColor: isFilled ? category.color : category.bgColor,
+              borderRadius: '10px 0 0 10px',
+              display: 'inline-block'
+            }}
+          />
+        );
       } else if (quarterPosition === 3) {
-        borderRadius = '0 999px 999px 0'; // Right cap
+        // Right cap
+        element = (
+          <div 
+            key={`quarter-${index}`} 
+            style={{
+              width: '10px',
+              height: '20px',
+              backgroundColor: isFilled ? category.color : category.bgColor,
+              borderRadius: '0 10px 10px 0',
+              display: 'inline-block'
+            }}
+          />
+        );
+      } else {
+        // Middle segments
+        element = (
+          <div 
+            key={`quarter-${index}`} 
+            style={{
+              width: '10px',
+              height: '20px',
+              backgroundColor: isFilled ? category.color : category.bgColor,
+              display: 'inline-block'
+            }}
+          />
+        );
       }
-      
-      return (
-        <div 
-          key={`quarter-${index}`} 
-          className="h-5"
-          style={{ 
-            width: quarterPosition === 0 || quarterPosition === 3 ? '4px' : '4px',
-            backgroundColor: isFilled ? category.color : category.bgColor,
-            borderRadius: borderRadius,
-            margin: '0',
-            display: 'inline-block'
-          }}
-        />
-      );
+      return element;
       
     } else {
       // In 0.5 mode, we use half-circles (original behavior)
@@ -310,27 +337,51 @@ const renderUnitIndicators = (categoryId, category, dayData) => {
       // In 0.25 mode, we use quarter-pills for excess
       const quarterPosition = index % 4;
       
-      // Determine the shape of this quarter
-      let borderRadius = '0';
+      // Create the excess quarter element with appropriate styling
+      let element;
       if (quarterPosition === 0) {
-        borderRadius = '999px 0 0 999px'; // Left cap
+        // Left cap
+        element = (
+          <div 
+            key={`excess-quarter-${index}`} 
+            style={{
+              width: '10px',
+              height: '20px',
+              backgroundColor: '#FF3B30', // Red for excess
+              borderRadius: '10px 0 0 10px',
+              display: 'inline-block'
+            }}
+          />
+        );
       } else if (quarterPosition === 3) {
-        borderRadius = '0 999px 999px 0'; // Right cap
+        // Right cap
+        element = (
+          <div 
+            key={`excess-quarter-${index}`} 
+            style={{
+              width: '10px',
+              height: '20px',
+              backgroundColor: '#FF3B30', // Red for excess
+              borderRadius: '0 10px 10px 0',
+              display: 'inline-block'
+            }}
+          />
+        );
+      } else {
+        // Middle segments
+        element = (
+          <div 
+            key={`excess-quarter-${index}`} 
+            style={{
+              width: '10px',
+              height: '20px',
+              backgroundColor: '#FF3B30', // Red for excess
+              display: 'inline-block'
+            }}
+          />
+        );
       }
-      
-      return (
-        <div 
-          key={`excess-quarter-${index}`} 
-          className="h-5"
-          style={{ 
-            width: quarterPosition === 0 || quarterPosition === 3 ? '4px' : '4px',
-            backgroundColor: '#FF3B30', // Red for excess
-            borderRadius: borderRadius,
-            margin: '0',
-            display: 'inline-block'
-          }}
-        />
-      );
+      return element;
       
     } else {
       // In 0.5 mode, we use half-circles for excess (original behavior)
@@ -419,7 +470,6 @@ const renderUnitIndicators = (categoryId, category, dayData) => {
   
   return groupedUnits;
 };
-
 // The Weekly Balance Indicator component
 const WeeklyBalanceIndicator = ({ category, balance }) => {
   // Skip rendering if balance is null/undefined (not enough data)
