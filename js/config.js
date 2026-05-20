@@ -133,15 +133,15 @@ const CONFIG = parseUrlParameters();
 const FOOD_CATEGORIES = CONFIG.foodCategories;
 
 // App version
-const APP_VERSION = '1.10.0';
+const APP_VERSION = '1.11.0';
 
 // Current data schema version for migrations
-const DATA_SCHEMA_VERSION = 3;
+const DATA_SCHEMA_VERSION = 4;
 
 // Increment size for unit steps
 const UNIT_INCREMENT = CONFIG.unitIncrement;
 
-// Maximum days to keep in history
+// Maximum days to keep in display history
 const MAX_HISTORY_DAYS = 14;
 
 // Helper to get default state for a single day
@@ -150,8 +150,9 @@ const getDefaultDayState = () => ({
   proteins: 0,
   fats: 0,
   vegetables: 0,
-  dayType: 'normal', // Default day type
-  date: new Date().toISOString().split('T')[0], // Store current date in YYYY-MM-DD format
-  schemaVersion: DATA_SCHEMA_VERSION, // Track schema version for migrations
-  hasBeenEdited: false // Flag to track if this day has been explicitly edited
+  weight: null,
+  dayType: 'normal',
+  date: new Date().toISOString().split('T')[0],
+  schemaVersion: DATA_SCHEMA_VERSION,
+  hasBeenEdited: false
 });

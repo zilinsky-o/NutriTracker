@@ -62,6 +62,15 @@ const formatUnitNumber = (value) => {
   return num.toFixed(1);
 };
 
+// Find the nearest previous day (higher index = older) that has a weight entry
+const getPreviousWeight = (history, currentIndex) => {
+  for (let i = currentIndex + 1; i < history.length; i++) {
+    const w = history[i].weight;
+    if (w !== null && w !== undefined) return w;
+  }
+  return null;
+};
+
 // History View component
 const HistoryView = ({ history, onEditDay, isActiveDay }) => {
   return (
@@ -69,10 +78,14 @@ const HistoryView = ({ history, onEditDay, isActiveDay }) => {
       {history.map((day, index) => {
         // Check if day has been edited or has non-zero values
         const isActive = isActiveDay ? isActiveDay(day) : true;
-        
+        const prevWeight = getPreviousWeight(history, index);
+        const weightDiff = (day.weight !== null && day.weight !== undefined && prevWeight !== null)
+          ? parseFloat((day.weight - prevWeight).toFixed(1))
+          : null;
+
         return (
-          <div 
-            key={day.date} 
+          <div
+            key={day.date}
             className={`bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm border transition-colors ${
               isActive 
                 ? 'border-gray-100 dark:border-gray-700' 
@@ -124,6 +137,23 @@ const HistoryView = ({ history, onEditDay, isActiveDay }) => {
                 );
               })}
               
+              {/* Weight row */}
+              <div className="flex items-center pt-2 mt-1 border-t border-gray-100 dark:border-gray-700">
+                <div className="w-24 text-sm text-gray-600 dark:text-gray-400">Weight</div>
+                <div className="flex-grow text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {day.weight !== null && day.weight !== undefined
+                    ? `${parseFloat(day.weight).toFixed(1)} kg`
+                    : <span className="text-gray-400 dark:text-gray-500">—</span>
+                  }
+                </div>
+                {weightDiff !== null && (
+                  <div className={`text-xs font-medium ${weightDiff > 0 ? 'text-red-500' : weightDiff < 0 ? 'text-green-500' : 'text-gray-400'}`}>
+                    {weightDiff > 0 ? '▲' : weightDiff < 0 ? '▼' : '='}{' '}
+                    {Math.abs(weightDiff).toFixed(1)} kg
+                  </div>
+                )}
+              </div>
+
               {/* Show "no data" indicator for unedited days with all zeros */}
               {!isActive && (
                 <div className="w-full text-center text-xs italic text-gray-500 dark:text-gray-400 mt-2">

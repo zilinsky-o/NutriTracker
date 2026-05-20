@@ -77,33 +77,16 @@ const formatWeekDateRange = (startDate, endDate) => {
   return `${startMonth} ${startDay} - ${endMonth} ${endDay}`;
 };
 
-// Generate a complete history with entries for all past days within limit
+// Generate a complete history with entries for all days within the display limit
 const ensureCompleteHistory = (existingHistory, limit = MAX_HISTORY_DAYS) => {
-  // Generate array of dates for the past X days
   const requiredDates = generateDateArray(limit);
-  
-  // Create a map of existing dates for quick lookup
+
   const existingDatesMap = {};
-  existingHistory.forEach(day => {
-    existingDatesMap[day.date] = day;
-  });
-  
-  // Create a complete history array with all required dates
-  const completeHistory = requiredDates.map(date => {
-    // If we already have an entry for this date, use it
-    if (existingDatesMap[date]) {
-      return existingDatesMap[date];
-    }
-    
-    // Otherwise, create a new default entry for this date
-    return {
-      ...getDefaultDayState(),
-      date: date,
-      hasBeenEdited: false // Flag to track if this auto-generated entry has been edited
-    };
-  });
-  
-  return completeHistory;
+  existingHistory.forEach(day => { existingDatesMap[day.date] = day; });
+
+  return requiredDates.map(date =>
+    existingDatesMap[date] || { ...getDefaultDayState(), date, hasBeenEdited: false }
+  );
 };
 
 // Calculate the weekly balance for all categories
@@ -612,7 +595,6 @@ const NutriTrack = () => {
   
   // Set up state with history
   const [appState, setAppState] = React.useState(() => {
-    // Load initial state from cookie
     const loadedState = loadFromCookie();
     
     // Ensure history has entries for all past days within the limit
@@ -685,14 +667,11 @@ const NutriTrack = () => {
           newHistory.unshift({ ...newDay });
         }
         
-        // Trim history to max days
-        const trimmedHistory = newHistory.slice(0, MAX_HISTORY_DAYS);
-        
         const newState = {
           currentDay: newDay,
-          history: trimmedHistory
+          history: newHistory.slice(0, MAX_HISTORY_DAYS)
         };
-        
+
         saveToCookie(newState);
         return newState;
       });
@@ -790,6 +769,31 @@ const NutriTrack = () => {
     }
   };
   
+  const updateWeight = (newWeight) => {
+    setAppState(prevState => {
+      const today = new Date().toISOString().split('T')[0];
+      const historyIndex = prevState.history.findIndex(day => day.date === today);
+      const newHistory = [...prevState.history];
+      const newCurrentDay = { ...prevState.currentDay, weight: newWeight, hasBeenEdited: true };
+      if (historyIndex >= 0) {
+        newHistory[historyIndex] = { ...newHistory[historyIndex], weight: newWeight, hasBeenEdited: true };
+      } else {
+        newHistory.unshift({ ...newCurrentDay });
+      }
+      const newState = { currentDay: newCurrentDay, history: newHistory };
+      saveToCookie(newState);
+      return newState;
+    });
+  };
+
+  const handleWeightChange = (newWeight, day = null) => {
+    if (day) {
+      setEditingDay(prevDay => ({ ...prevDay, weight: newWeight, hasBeenEdited: true }));
+    } else {
+      updateWeight(newWeight);
+    }
+  };
+
   const handleDayTypeChange = (newDayType, day = null) => {
     if (day) {
       // We're editing a historical day
@@ -840,8 +844,9 @@ const NutriTrack = () => {
       setAppState(prevState => {
         const newCurrentDay = {
           ...getDefaultDayState(),
-          dayType: prevState.currentDay.dayType, // Preserve day type
-          hasBeenEdited: true // Mark as edited even when resetting
+          dayType: prevState.currentDay.dayType,
+          weight: prevState.currentDay.weight, // Preserve weight — reset only clears food
+          hasBeenEdited: true
         };
         
         // Update history for current day
@@ -1122,6 +1127,7 @@ const NutriTrack = () => {
             onTouchEnd={handleTouchEnd}
             onClick={handleButtonClick}
             onDayTypeChange={(newType) => handleDayTypeChange(newType, editingDay)}
+            onWeightChange={(newWeight) => handleWeightChange(newWeight, editingDay)}
           />
         ) : showHistory ? (
           // History view
@@ -1131,8 +1137,33 @@ const NutriTrack = () => {
             isActiveDay={isActiveDay}
           />
         ) : (
-          // Today's tracking with weekly balance indicators
-          FOOD_CATEGORIES.map(category => (
+          // Today's tracking
+          <React.Fragment>
+            {/* Weight input */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm border border-gray-100 dark:border-gray-700 mb-4 transition-colors">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-300">Weight</h2>
+                <div className="flex items-center">
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.1"
+                    min="0"
+                    value={unitCounts.weight !== null && unitCounts.weight !== undefined ? unitCounts.weight : ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      updateWeight(val === '' ? null : parseFloat(val));
+                    }}
+                    placeholder="—"
+                    className="w-24 text-right text-lg font-semibold bg-transparent border-b-2 border-gray-200 dark:border-gray-600 focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400 text-gray-700 dark:text-gray-300"
+                  />
+                  <span className="ml-2 text-gray-500 dark:text-gray-400 text-sm font-medium">kg</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Food categories with weekly balance indicators */}
+            {FOOD_CATEGORIES.map(category => (
             <EnhancedFoodCategory
               key={category.id}
               category={category}
@@ -1142,9 +1173,10 @@ const NutriTrack = () => {
               onTouchStart={(id, action) => handleTouchStart(id, action)}
               onTouchEnd={handleTouchEnd}
               onClick={(id, action) => handleButtonClick(id, action)}
-              weeklyBalance={weeklyBalance} // Pass weekly balance data
+              weeklyBalance={weeklyBalance}
             />
-          ))
+          ))}
+          </React.Fragment>
         )}
       </main>
       

@@ -32,17 +32,24 @@ const loadDarkModeFromCookie = () => {
         return value === '1';
       }
     }
-    
-    // If no cookie found, check system preference
     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
       return true;
     }
-    
     return false;
   } catch (error) {
     console.error('Error loading dark mode preference:', error);
     return false;
   }
+};
+
+// Migrate a single day entry to the current schema version
+const migrateDay = (day) => {
+  const m = { ...day };
+  if (!m.hasOwnProperty('schemaVersion')) m.schemaVersion = DATA_SCHEMA_VERSION;
+  if (!m.hasOwnProperty('hasBeenEdited')) m.hasBeenEdited = true;
+  if (!m.hasOwnProperty('weight')) m.weight = null;
+  m.schemaVersion = DATA_SCHEMA_VERSION;
+  return m;
 };
 
 // Load state from cookie
@@ -55,69 +62,30 @@ const loadFromCookie = () => {
         try {
           const savedState = JSON.parse(value);
           if (savedState && typeof savedState === 'object') {
-            // Check if we have the expected data structure
             if (Array.isArray(savedState.history)) {
-              // Add schema version if it doesn't exist (for future migrations)
-              if (!savedState.currentDay.hasOwnProperty('schemaVersion')) {
-                savedState.currentDay.schemaVersion = DATA_SCHEMA_VERSION;
-                
-                // Add schema version to each history item if missing
-                savedState.history = savedState.history.map(day => ({ 
-                  ...day, 
-                  schemaVersion: day.schemaVersion || DATA_SCHEMA_VERSION
-                }));
-                
-                // Save the updated data
-                saveToCookie(savedState);
-              }
-              
-              // Add hasBeenEdited flag to each history item if missing
-              if (!savedState.currentDay.hasOwnProperty('hasBeenEdited')) {
-                // For existing data, assume all entries have been edited
-                savedState.currentDay.hasBeenEdited = true;
-                
-                savedState.history = savedState.history.map(day => ({ 
-                  ...day, 
-                  hasBeenEdited: true
-                }));
-                
-                // Save the updated data
-                saveToCookie(savedState);
-              }
-              
-              return savedState;
+              const needsMigration = !savedState.currentDay.hasOwnProperty('weight') ||
+                savedState.currentDay.schemaVersion !== DATA_SCHEMA_VERSION;
+              const migrated = {
+                currentDay: migrateDay(savedState.currentDay),
+                history: savedState.history.map(migrateDay)
+              };
+              if (needsMigration) saveToCookie(migrated);
+              return migrated;
             }
-            
-            // If we have an old format (pre-history), migrate to new format
+
+            // Old format (pre-history) migration
             const today = new Date().toISOString().split('T')[0];
             const validState = {
-              currentDay: {
-                date: today,
-                dayType: 'normal',
-                schemaVersion: DATA_SCHEMA_VERSION,
-                hasBeenEdited: true
-              },
-              history: [
-                {
-                  date: today,
-                  dayType: 'normal',
-                  schemaVersion: DATA_SCHEMA_VERSION,
-                  hasBeenEdited: true
-                }
-              ]
+              currentDay: { ...getDefaultDayState(), date: today, hasBeenEdited: true },
+              history: [{ ...getDefaultDayState(), date: today, hasBeenEdited: true }]
             };
-            
-            // Migrate old values if they exist
             for (const category of FOOD_CATEGORIES) {
-              const categoryId = category.id;
-              const val = (savedState.hasOwnProperty(categoryId) && 
-                typeof savedState[categoryId] === 'number' && 
-                savedState[categoryId] >= 0) ? savedState[categoryId] : 0;
-              
-              validState.currentDay[categoryId] = val;
-              validState.history[0][categoryId] = val;
+              const val = (savedState.hasOwnProperty(category.id) &&
+                typeof savedState[category.id] === 'number' &&
+                savedState[category.id] >= 0) ? savedState[category.id] : 0;
+              validState.currentDay[category.id] = val;
+              validState.history[0][category.id] = val;
             }
-            
             return validState;
           }
         } catch (error) {
@@ -128,43 +96,18 @@ const loadFromCookie = () => {
   } catch (error) {
     console.error('Error loading from cookies:', error);
   }
-  
-  // Return default state if no valid saved state
-  const defaultDay = getDefaultDayState();
-  
-  // Mark the current day as edited since it's being created explicitly
-  defaultDay.hasBeenEdited = true;
-  
-  return {
-    currentDay: defaultDay,
-    history: [{ ...defaultDay }]
-  };
+
+  const defaultDay = { ...getDefaultDayState(), hasBeenEdited: true };
+  return { currentDay: defaultDay, history: [{ ...defaultDay }] };
 };
 
 // Generate URL with current unit configuration
 const generateConfigUrl = () => {
-  // Extract the units from the current configuration
   const normalUnits = FOOD_CATEGORIES.map(cat => Math.round(cat.maxUnits.normal * 10)).join('-');
   const sportUnits = FOOD_CATEGORIES.map(cat => Math.round(cat.maxUnits.sport * 10)).join('-');
-  
-  // Check if normal and sport are the same
-  const normalValues = normalUnits.split('-');
-  const sportValues = sportUnits.split('-');
-  
-  let isSame = true;
-  for (let i = 0; i < normalValues.length; i++) {
-    if (normalValues[i] !== sportValues[i]) {
-      isSame = false;
-      break;
-    }
-  }
-  
-  // If normal and sport are the same, only include normal units
+  const isSame = normalUnits.split('-').every((v, i) => v === sportUnits.split('-')[i]);
   const paramValue = isSame ? normalUnits : `${normalUnits}-${sportUnits}`;
-  
-  // Get the current URL and update the u parameter
   const url = new URL(window.location.href);
   url.searchParams.set('u', paramValue);
-  
   return url.toString();
 };
