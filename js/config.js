@@ -133,7 +133,13 @@ const CONFIG = parseUrlParameters();
 const FOOD_CATEGORIES = CONFIG.foodCategories;
 
 // App version
-const APP_VERSION = '1.11.0';
+const APP_VERSION = '1.12.0';
+
+// Cookie name for weekly weight averages
+const WEEKLY_WEIGHT_COOKIE = 'nutritrackWeeklyWeight';
+
+// Maximum weeks to keep in the weekly weight history
+const MAX_WEEKLY_HISTORY = 104; // 2 years
 
 // Current data schema version for migrations
 const DATA_SCHEMA_VERSION = 4;

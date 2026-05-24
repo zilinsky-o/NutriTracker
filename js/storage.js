@@ -101,6 +101,36 @@ const loadFromCookie = () => {
   return { currentDay: defaultDay, history: [{ ...defaultDay }] };
 };
 
+// Save weekly weight averages to a separate cookie
+// Format: array of { d: "YYYY-MM-DD" (week start Sunday), avg: number, n: number (days with data) }
+const saveWeeklyAverages = (weeklyAvgs) => {
+  try {
+    const farFuture = new Date();
+    farFuture.setFullYear(farFuture.getFullYear() + 100);
+    const trimmed = weeklyAvgs.slice(0, MAX_WEEKLY_HISTORY);
+    document.cookie = `${WEEKLY_WEIGHT_COOKIE}=${JSON.stringify(trimmed)};expires=${farFuture.toUTCString()};path=/;SameSite=Strict`;
+  } catch (error) {
+    console.error('Error saving weekly averages:', error);
+  }
+};
+
+// Load weekly weight averages from cookie
+const loadWeeklyAverages = () => {
+  try {
+    const cookies = document.cookie.split(';');
+    for (let cookie of cookies) {
+      const [name, value] = cookie.trim().split('=');
+      if (name === WEEKLY_WEIGHT_COOKIE) {
+        const data = JSON.parse(value);
+        if (Array.isArray(data)) return data;
+      }
+    }
+  } catch (error) {
+    console.error('Error loading weekly averages:', error);
+  }
+  return [];
+};
+
 // Generate URL with current unit configuration
 const generateConfigUrl = () => {
   const normalUnits = FOOD_CATEGORIES.map(cat => Math.round(cat.maxUnits.normal * 10)).join('-');

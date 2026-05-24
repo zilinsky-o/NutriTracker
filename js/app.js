@@ -589,6 +589,72 @@ const WeeklyBalanceIndicator = ({ category, balance }) => {
   );
 };
 
+// Calculate and store weekly weight averages from history.
+// Called on every app open so completed weeks are captured before daily data ages out.
+const calculateAndStoreWeeklyAverages = (history) => {
+  const today = new Date().toISOString().split('T')[0];
+  const currentWeekStart = getWeekStartDate(today);
+
+  // Group weight entries by week start date, skipping placeholders and null weights
+  const weekGroups = {};
+  history.forEach(day => {
+    if (!day.hasBeenEdited) return;
+    if (day.weight === null || day.weight === undefined) return;
+    const weekStart = getWeekStartDate(day.date);
+    if (!weekGroups[weekStart]) weekGroups[weekStart] = [];
+    weekGroups[weekStart].push(day.weight);
+  });
+
+  // Only finalise completed weeks (not the current week)
+  const completedWeeks = Object.entries(weekGroups)
+    .filter(([weekStart]) => weekStart < currentWeekStart)
+    .map(([weekStart, weights]) => ({
+      d: weekStart,
+      avg: Math.round((weights.reduce((s, w) => s + w, 0) / weights.length) * 10) / 10,
+      n: weights.length
+    }));
+
+  if (completedWeeks.length === 0) return null;
+
+  // Merge with existing stored averages (update if recalculated)
+  const existing = loadWeeklyAverages();
+  const existingMap = {};
+  existing.forEach(w => { existingMap[w.d] = w; });
+  completedWeeks.forEach(week => { existingMap[week.d] = week; });
+
+  // Sort newest first and save
+  const merged = Object.values(existingMap)
+    .sort((a, b) => b.d.localeCompare(a.d))
+    .slice(0, MAX_WEEKLY_HISTORY);
+
+  saveWeeklyAverages(merged);
+  return merged;
+};
+
+// Calculate current (incomplete) week's running average — for display only, not stored yet
+const calculateCurrentWeekAvg = (history) => {
+  const today = new Date().toISOString().split('T')[0];
+  const currentWeekStart = getWeekStartDate(today);
+
+  const days = history.filter(day =>
+    day.date >= currentWeekStart &&
+    day.date <= today &&
+    day.hasBeenEdited &&
+    day.weight !== null &&
+    day.weight !== undefined
+  );
+
+  if (days.length === 0) return null;
+
+  const avg = days.reduce((s, d) => s + d.weight, 0) / days.length;
+  return {
+    d: currentWeekStart,
+    avg: Math.round(avg * 10) / 10,
+    n: days.length,
+    isCurrent: true
+  };
+};
+
 // The main NutriTrack component with its functionality
 const NutriTrack = () => {
   console.log('Initializing NutriTrack component...');
@@ -614,6 +680,8 @@ const NutriTrack = () => {
   const [editingDay, setEditingDay] = React.useState(null);
   const [isDarkMode, setIsDarkMode] = React.useState(loadDarkModeFromCookie());
   const [weeklyBalance, setWeeklyBalance] = React.useState(null);
+  const [weeklyAverages, setWeeklyAverages] = React.useState(() => loadWeeklyAverages());
+  const [currentWeekAvg, setCurrentWeekAvg] = React.useState(null);
   
   // Shorthand for current day's unit counts
   const unitCounts = appState.currentDay;
@@ -628,7 +696,7 @@ const NutriTrack = () => {
     saveDarkModeToCookie(isDarkMode);
   }, [isDarkMode]);
   
-  // Calculate weekly balance when history changes
+  // Calculate weekly balance and weekly weight averages when history changes
   React.useEffect(() => {
     console.log('Calculating weekly balance from history...');
     try {
@@ -637,6 +705,15 @@ const NutriTrack = () => {
       setWeeklyBalance(balance);
     } catch (error) {
       console.error('Error calculating weekly balance:', error);
+    }
+
+    // Calculate and store weekly weight averages
+    try {
+      const stored = calculateAndStoreWeeklyAverages(appState.history);
+      if (stored) setWeeklyAverages(stored);
+      setCurrentWeekAvg(calculateCurrentWeekAvg(appState.history));
+    } catch (error) {
+      console.error('Error calculating weekly weight averages:', error);
     }
   }, [appState.history]);
   
@@ -1131,10 +1208,13 @@ const NutriTrack = () => {
           />
         ) : showHistory ? (
           // History view
-          <HistoryView 
-            history={appState.history} 
+          <HistoryView
+            history={appState.history}
             onEditDay={startEditingDay}
             isActiveDay={isActiveDay}
+            weeklyAverages={weeklyAverages}
+            currentWeekAvg={currentWeekAvg}
+            isDarkMode={isDarkMode}
           />
         ) : (
           // Today's tracking

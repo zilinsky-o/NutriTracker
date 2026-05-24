@@ -72,8 +72,42 @@ const getPreviousWeight = (history, currentIndex) => {
 };
 
 // History View component
-const HistoryView = ({ history, onEditDay, isActiveDay }) => {
+const HistoryView = ({ history, onEditDay, isActiveDay, weeklyAverages, currentWeekAvg, isDarkMode }) => {
+  const [activeTab, setActiveTab] = React.useState('daily');
+
   return (
+    <div>
+      {/* Tabs */}
+      <div className="flex mb-4 border-b border-gray-200 dark:border-gray-700">
+        <button
+          onClick={() => setActiveTab('daily')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'daily'
+              ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+              : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          Daily
+        </button>
+        <button
+          onClick={() => setActiveTab('weight')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'weight'
+              ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+              : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          Weight Trend
+        </button>
+      </div>
+
+      {activeTab === 'weight' ? (
+        <WeightTrendView
+          weeklyAverages={weeklyAverages}
+          currentWeekAvg={currentWeekAvg}
+          isDarkMode={isDarkMode}
+        />
+      ) : (
     <div className="space-y-4">
       {history.map((day, index) => {
         // Check if day has been edited or has non-zero values
@@ -169,6 +203,8 @@ const HistoryView = ({ history, onEditDay, isActiveDay }) => {
         <div className="text-center text-gray-500 dark:text-gray-400 py-6">
           No history data available yet
         </div>
+      )}
+    </div>
       )}
     </div>
   );
