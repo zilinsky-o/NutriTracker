@@ -98,7 +98,7 @@ const WeightTrendView = ({ weeklyAverages, currentWeekAvg, isDarkMode }) => {
               label: (ctx) => {
                 const idx = ctx.dataIndex;
                 const suffix = isCurrent[idx] ? ' (this week so far)' : '';
-                return `${ctx.parsed.y} kg${suffix}`;
+                return `${Number(ctx.parsed.y).toFixed(1)} kg${suffix}`;
               }
             }
           }
@@ -111,7 +111,7 @@ const WeightTrendView = ({ weeklyAverages, currentWeekAvg, isDarkMode }) => {
           y: {
             ticks: {
               color: textColor,
-              callback: (v) => `${v} kg`
+              callback: (v) => `${Number(v).toFixed(1)} kg`
             },
             grid: { color: gridColor }
           }
