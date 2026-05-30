@@ -133,7 +133,7 @@ const CONFIG = parseUrlParameters();
 const FOOD_CATEGORIES = CONFIG.foodCategories;
 
 // App version
-const APP_VERSION = '1.12.1';
+const APP_VERSION = '1.12.2';
 
 // Cookie name for weekly weight averages
 const WEEKLY_WEIGHT_COOKIE = 'nutritrackWeeklyWeight';

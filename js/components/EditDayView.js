@@ -55,19 +55,7 @@ const EditDayView = ({
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-300">Weight</h2>
           <div className="flex items-center">
-            <input
-              type="number"
-              inputMode="decimal"
-              step="0.1"
-              min="0"
-              value={day.weight !== null && day.weight !== undefined ? day.weight : ''}
-              onChange={(e) => {
-                const val = e.target.value;
-                onWeightChange(val === '' ? null : parseFloat(val));
-              }}
-              placeholder="—"
-              className="w-24 text-right text-lg font-semibold bg-transparent border-b-2 border-gray-200 dark:border-gray-600 focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400 text-gray-700 dark:text-gray-300"
-            />
+            <WeightInput value={day.weight} onChange={onWeightChange} />
             <span className="ml-2 text-gray-500 dark:text-gray-400 text-sm font-medium">kg</span>
           </div>
         </div>
